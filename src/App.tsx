@@ -4,17 +4,19 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import Cookies from "js-cookie";
 
+const apiUrl = import.meta.env.VITE_API_URL;
+
 const App: React.FC = () => {
   const [user, setUser] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleLogin = () => {
-    window.location.href = "http://localhost:8080/login"; // Redirect to backend login
+    window.location.href = `${apiUrl}/login`; // Redirect to backend login
   };
 
   const fetchUser = async () => {
     try {
-      const response = await axios.get("http://localhost:8080/user", {
+      const response = await axios.get(`${apiUrl}/user`, {
         withCredentials: true, // Include cookies with the request
       });
       setUser(response.data);
