@@ -1,65 +1,58 @@
 /** @format */
-
+import "@fontsource/roboto/300.css";
+import "@fontsource/roboto/400.css";
+import "@fontsource/roboto/500.css";
+import "@fontsource/roboto/700.css";
 import React, { useEffect, useState } from "react";
+import Login from "./Login";
+import { ToastContainer, toast } from "react-toastify";
 import axios from "axios";
-import Cookies from "js-cookie";
+import Dashboard from "./Dashboard";
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
-const App: React.FC = () => {
-  const [user, setUser] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
+export interface User {
+  email: string;
+  role: string;
+}
 
-  const handleLogin = () => {
-    window.location.href = `${apiUrl}/login`; // Redirect to backend login
-  };
+const App: React.FC = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [isFetching, setIsFetching] = useState(true);
 
   const fetchUser = async () => {
     try {
       const response = await axios.get(`${apiUrl}/user`, {
-        withCredentials: true, // Include cookies with the request
+        withCredentials: true,
       });
       setUser(response.data);
     } catch (err: any) {
-      setError(err.response?.data?.error || "Failed to fetch user");
+      setUser(null);
+      toast(err.response?.data?.error || "Failed to fetch user", {
+        type: "error",
+      });
+    } finally {
+      setIsFetching(false);
     }
   };
 
   useEffect(() => {
-    const token = Cookies.get("token");
-    if (token) {
-      fetchUser();
-    }
+    fetchUser();
   }, []);
 
-  return (
-    <div style={{ padding: "2rem", fontFamily: "Arial, sans-serif" }}>
-      <h1>User Authentication</h1>
+  if (isFetching) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-900">
+        <div className="spinner"></div>
+      </div>
+    );
+  }
 
-      {!user ? (
-        <div>
-          <p>Please log in to access your account.</p>
-          <button onClick={handleLogin} style={{ padding: "0.5rem 1rem" }}>
-            Log In with Google
-          </button>
-          {error && <p style={{ color: "red" }}>{error}</p>}
-        </div>
-      ) : (
-        <div>
-          <h2>Welcome, {user.email}!</h2>
-          <p>Role: {user.role}</p>
-          <button
-            onClick={() => {
-              Cookies.remove("token"); // Clear token
-              setUser(null);
-            }}
-            style={{ padding: "0.5rem 1rem", marginTop: "1rem" }}
-          >
-            Log Out
-          </button>
-        </div>
-      )}
-    </div>
+  return (
+    <>
+      {!user ? <Login /> : <Dashboard user={user} />}
+      <ToastContainer />
+    </>
   );
 };
 
