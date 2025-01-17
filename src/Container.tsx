@@ -289,6 +289,10 @@ const Container = ({ containerName }: ContainerProps) => {
       <div
         ref={logContainerRef}
         className="console-logs mt-4 bg-black text-white p-4 h-96 overflow-y-auto rounded-lg"
+        style={{
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+        }}
       >
         {logs.map((log, index) => (
           <div key={index} className="text-sm font-mono">
