@@ -20,3 +20,26 @@
     transform: rotate(360deg);
   }
 }
+
+.console-logs::-webkit-scrollbar {
+  width: 8px;
+  background-color: transparent;
+}
+
+.console-logs::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 10px;
+}
+
+.console-logs::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Optional: Hide scrollbar while not scrolling */
+.console-logs::-webkit-scrollbar {
+  display: none;
+}
+
+.console-logs:hover::-webkit-scrollbar {
+  display: block;
+}
