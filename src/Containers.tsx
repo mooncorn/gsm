@@ -101,7 +101,14 @@ const Containers = () => {
           </span>
         </td>
         <td className="px-3 py-3">{c.Image}</td>
-        <td className="px-3 py-3">{c.Status}</td>
+        <td className="flex items-center gap-2 px-3 py-3">
+          <span
+            className={`inline-block w-2 h-2 rounded-full ${
+              c?.State === "running" ? "bg-green-700" : "bg-red-700"
+            }`}
+          />
+          <span>{c.Status}</span>
+        </td>
       </tr>
     ));
   };

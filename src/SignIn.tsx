@@ -3,9 +3,9 @@ import { TbCubeSpark } from "react-icons/tb";
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
-const Login: React.FC = () => {
-  const handleLogin = () => {
-    window.location.href = `${apiUrl}/login`; // Redirect to backend login
+const SignIn: React.FC = () => {
+  const handleSignIn = () => {
+    window.location.href = `${apiUrl}/signin`; // Redirect to backend login
   };
 
   return (
@@ -22,7 +22,7 @@ const Login: React.FC = () => {
             You have to sign in to access the dashboard.
           </p>
           <button
-            onClick={handleLogin}
+            onClick={handleSignIn}
             className="bg-gray-800 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
           >
             Sign in with Google
@@ -33,4 +33,4 @@ const Login: React.FC = () => {
   );
 };
 
-export default Login;
+export default SignIn;
