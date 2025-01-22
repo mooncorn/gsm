@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
@@ -290,14 +291,12 @@ func Restart(c *gin.Context) {
 func LogsStream(c *gin.Context) {
 	id := c.Param("id")
 
-	// Create Docker client
 	docker, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to create Docker client: %v", err)})
 		return
 	}
 
-	// Create a stream for only new logs
 	logStream, err := docker.ContainerLogs(c, id, container.LogsOptions{
 		ShowStdout: true,
 		ShowStderr: true,
@@ -311,37 +310,44 @@ func LogsStream(c *gin.Context) {
 	}
 	defer logStream.Close()
 
-	// Set headers for SSE
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 	c.Writer.WriteHeader(http.StatusOK)
 	c.Writer.Flush()
 
-	// Buffer to read log data line by line
 	reader := bufio.NewReader(logStream)
-	for {
-		line, err := reader.ReadString('\n')
-		if line != "" {
-			if len(line) > 8 && isHeaderPresent([]byte(line)) {
-				// Strip the first 8 bytes if headers are present
-				line = line[8:]
-			}
+	heartbeat := time.NewTicker(30 * time.Second)
+	defer heartbeat.Stop()
 
-			if len(line) > 0 {
-				c.Writer.Write([]byte("data: " + line + "\n"))
-				c.Writer.Flush()
+	for {
+		select {
+		case <-heartbeat.C:
+			// Send a heartbeat
+			c.Writer.Write([]byte(": heartbeat\n\n"))
+			c.Writer.Flush()
+		default:
+			line, err := reader.ReadString('\n')
+			if line != "" {
+				if len(line) > 8 && isHeaderPresent([]byte(line)) {
+					line = line[8:]
+				}
+
+				if len(line) > 0 {
+					c.Writer.Write([]byte("data: " + line + "\n"))
+					c.Writer.Flush()
+				}
 			}
-		}
-		if err != nil {
-			if err == io.EOF {
-				break
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				if c.Writer.Written() {
+					return // Handle client disconnection gracefully
+				}
+				c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("log stream error: %v", err)})
+				return
 			}
-			if c.Writer.Written() {
-				return // Handle client disconnection gracefully
-			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("log stream error: %v", err)})
-			return
 		}
 	}
 }
@@ -395,65 +401,50 @@ func Logs(c *gin.Context) {
 }
 
 func StreamDockerEvents(c *gin.Context) {
-	// var req EventsRequest
-	// if err := c.BindJSON(&req); err != nil {
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
-	// 	return
-	// }
-
 	docker, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to create Docker client: %v", err)})
 		return
 	}
 
-	// Set headers for SSE
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 	c.Writer.WriteHeader(http.StatusOK)
 	c.Writer.Flush()
 
-	// Create a Docker events channel
 	eventsChan, errChan := docker.Events(c, events.ListOptions{})
 
-	// Stream Docker events
+	heartbeat := time.NewTicker(30 * time.Second)
+	defer heartbeat.Stop()
+
 	for {
 		select {
 		case event, ok := <-eventsChan:
-			// Check if the channel is closed
 			if !ok {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "docker events channel closed"})
 				return
 			}
-
-			// Prepare the event data as a map for JSON encoding
 			eventData := map[string]interface{}{
 				"event_type": event.Type,
 				"action":     event.Action,
-				"actor_id":   event.Actor.ID[:12], // Limiting actor ID to 12 chars
+				"actor_id":   event.Actor.ID[:12],
 				"attributes": event.Actor.Attributes,
 			}
-
-			// Convert event data to JSON
-			eventJSON, err := json.Marshal(eventData)
-			if err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to marshal event to JSON: %v", err)})
-				return
+			if eventJSON, err := json.Marshal(eventData); err == nil {
+				c.Writer.Write([]byte("data: " + string(eventJSON) + "\n\n"))
+				c.Writer.Flush()
 			}
-
-			// Send event as SSE
-			c.Writer.Write([]byte("data: " + string(eventJSON) + "\n\n"))
-			c.Writer.Flush()
-
 		case err := <-errChan:
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("event stream error: %v", err)})
 				return
 			}
-
+		case <-heartbeat.C:
+			// Send a heartbeat
+			c.Writer.Write([]byte(": heartbeat\n\n"))
+			c.Writer.Flush()
 		case <-c.Request.Context().Done():
-			// Handle client disconnection gracefully
 			return
 		}
 	}

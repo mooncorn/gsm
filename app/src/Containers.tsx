@@ -1,5 +1,5 @@
 import axios from "axios";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiUrl } from "./App";
 import { toast } from "react-toastify";
 import { default as ContainerComponent } from "./Container";
@@ -36,6 +36,7 @@ const Containers = () => {
   const [selectedContainer, setSelectedContainer] = useState<Container | null>(
     null
   );
+  const dockerEventSourceRef = useRef<EventSource | null>(null);
 
   const fetchContainers = async () => {
     try {
@@ -58,32 +59,46 @@ const Containers = () => {
 
   useEffect(() => {
     fetchContainers();
-
-    // Setup SSE connection
-    const eventSource = new EventSource(`${apiUrl}/docker/events`, {
-      withCredentials: true,
-    });
-
-    eventSource.onmessage = (event) => {
-      const eventData = JSON.parse(event.data);
-
-      // Refetch containers on relevant actions
-      if (["start", "kill", "die", "destroy"].includes(eventData.action)) {
-        fetchContainers();
-      }
-    };
-
-    eventSource.onerror = (error) => {
-      console.error("EventSource failed:", error);
-      eventSource.close(); // Close the connection on error
-      toast("Failed to connect to Docker events", { type: "error" });
-    };
+    connectToDockerEvents();
 
     // Cleanup when component unmounts
     return () => {
-      eventSource.close();
+      disconnectDockerEvents();
     };
   }, []);
+
+  const connectToDockerEvents = () => {
+    if (!dockerEventSourceRef.current) {
+      dockerEventSourceRef.current = new EventSource(
+        `${apiUrl}/docker/events`,
+        {
+          withCredentials: true,
+        }
+      );
+
+      dockerEventSourceRef.current.onmessage = (event) => {
+        const eventData = JSON.parse(event.data);
+
+        if (
+          ["start", "stop", "die", "kill", "destroy"].includes(eventData.action)
+        ) {
+          fetchContainers();
+        }
+      };
+
+      dockerEventSourceRef.current.onerror = (error) => {
+        console.error("Docker EventSource failed:", error);
+        disconnectDockerEvents();
+      };
+    }
+  };
+
+  const disconnectDockerEvents = () => {
+    if (dockerEventSourceRef.current) {
+      dockerEventSourceRef.current.close();
+      dockerEventSourceRef.current = null;
+    }
+  };
 
   const getContainerName = (container: Container) => {
     return container.Names[0].replace("/", "");

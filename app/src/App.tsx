@@ -4,7 +4,7 @@ import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import React, { useEffect, useState } from "react";
 import Login from "./SignIn";
-import { ToastContainer, toast } from "react-toastify";
+import { ToastContainer } from "react-toastify";
 import axios from "axios";
 import Dashboard from "./Dashboard";
 
@@ -27,9 +27,6 @@ const App: React.FC = () => {
       setUser(response.data);
     } catch (err: any) {
       setUser(null);
-      toast(err.response?.data?.error || "Failed to fetch user", {
-        type: "error",
-      });
     } finally {
       setIsFetching(false);
     }

@@ -3,9 +3,15 @@ import axios from "axios";
 import Button from "./Button";
 import { apiUrl } from "./App";
 import { Bounce, toast } from "react-toastify";
+import { IoPower } from "react-icons/io5";
 
 interface ContainerProps {
   containerName: string;
+}
+
+interface Port {
+  HostPort: string;
+  HostIp: string;
 }
 
 interface Container {
@@ -46,6 +52,9 @@ interface Container {
     Image: string;
     Labels: Record<string, string>;
   };
+  HostConfig: {
+    PortBindings: Record<string, Port[]>;
+  };
 }
 
 const Container = ({ containerName }: ContainerProps) => {
@@ -60,7 +69,9 @@ const Container = ({ containerName }: ContainerProps) => {
     try {
       const response = await axios.get(
         `${apiUrl}/docker/inspect/${containerName}`,
-        { withCredentials: true }
+        {
+          withCredentials: true,
+        }
       );
       setContainer(response.data);
     } catch (err) {
@@ -83,7 +94,9 @@ const Container = ({ containerName }: ContainerProps) => {
     try {
       const response = await axios.get(
         `${apiUrl}/docker/logs/${containerName}`,
-        { withCredentials: true }
+        {
+          withCredentials: true,
+        }
       );
       setLogs(response.data.split("\n"));
     } catch (err) {
@@ -106,7 +119,9 @@ const Container = ({ containerName }: ContainerProps) => {
     if (!logEventSourceRef.current) {
       logEventSourceRef.current = new EventSource(
         `${apiUrl}/docker/logs/${containerName}/stream`,
-        { withCredentials: true }
+        {
+          withCredentials: true,
+        }
       );
 
       logEventSourceRef.current.onmessage = (event) => {
@@ -114,22 +129,8 @@ const Container = ({ containerName }: ContainerProps) => {
       };
 
       logEventSourceRef.current.onerror = (error) => {
-        if (container?.State.Status === "running") {
-          toast.error(`Failed to listen to logs for ${containerName}`, {
-            position: "bottom-right",
-            autoClose: 3000,
-            hideProgressBar: true,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-            progress: undefined,
-            theme: "colored",
-            transition: Bounce,
-          });
-        }
         console.error("Log EventSource failed:", error);
-        logEventSourceRef.current?.close();
-        logEventSourceRef.current = null;
+        disconnectLogStream();
       };
     }
   };
@@ -153,32 +154,20 @@ const Container = ({ containerName }: ContainerProps) => {
       dockerEventSourceRef.current.onmessage = (event) => {
         const eventData = JSON.parse(event.data);
 
-        // Check if the event is related to this container
         if (eventData.attributes?.name === containerName) {
-          // Handle events like start, stop, die, destroy
-          if (["start", "stop", "die", "destroy"].includes(eventData.action)) {
-            fetchContainerDetails(); // Update container details on state-change events
+          if (
+            ["start", "stop", "die", "kill", "destroy"].includes(
+              eventData.action
+            )
+          ) {
+            fetchContainerDetails();
           }
         }
       };
 
       dockerEventSourceRef.current.onerror = (error) => {
-        if (container?.State.Status === "running") {
-          toast.error(`Failed to listen to docker events`, {
-            position: "bottom-right",
-            autoClose: 3000,
-            hideProgressBar: true,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-            progress: undefined,
-            theme: "colored",
-            transition: Bounce,
-          });
-        }
         console.error("Docker EventSource failed:", error);
-        dockerEventSourceRef.current?.close();
-        dockerEventSourceRef.current = null;
+        disconnectDockerEvents();
       };
     }
   };
@@ -204,7 +193,6 @@ const Container = ({ containerName }: ContainerProps) => {
   }, [containerName]);
 
   useEffect(() => {
-    // Auto-scroll to the bottom of the logs
     if (logContainerRef.current) {
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
     }
@@ -218,7 +206,6 @@ const Container = ({ containerName }: ContainerProps) => {
         {},
         { withCredentials: true }
       );
-      connectToLogStream();
     } catch (err) {
       console.error("Start failed", err);
       toast.error(`Failed to start ${containerName}`, {
@@ -237,6 +224,14 @@ const Container = ({ containerName }: ContainerProps) => {
     }
   };
 
+  useEffect(() => {
+    if (container?.State.Running) {
+      connectToLogStream();
+    } else {
+      disconnectLogStream();
+    }
+  }, [container]);
+
   const stop = async () => {
     try {
       setIsLoading(true);
@@ -245,7 +240,6 @@ const Container = ({ containerName }: ContainerProps) => {
         {},
         { withCredentials: true }
       );
-      disconnectLogStream();
     } catch (err) {
       console.error(`Failed to stop ${containerName}`, err);
       toast.error(`Failed to stop ${containerName}`, {
@@ -264,24 +258,35 @@ const Container = ({ containerName }: ContainerProps) => {
     }
   };
 
+  const formatDateTime = (date: Date | string | undefined) => {
+    if (!date) return "";
+    const parsedDate = typeof date === "string" ? new Date(date) : date;
+    return parsedDate.toLocaleString("en-US", {
+      month: "long", // Full month name
+      day: "numeric", // Day of the month
+      year: "numeric", // Full year
+      hour: "numeric", // Hour
+      minute: "numeric", // Minute
+      hour12: true, // 12-hour format with AM/PM
+    });
+  };
+
   return (
     <div className="min-w-full">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold m-2">{containerName}</h2>
+        <div className="flex gap-2 items-baseline">
+          <h2 className="text-2xl font-bold m-2">{containerName}</h2>
+          <span className="text-gray-500">{container?.Config.Image}</span>
+        </div>
 
         <div className="flex gap-2 items-center">
-          Status: {container?.State.Status}
           <Button
-            onClick={start}
-            disabled={container?.State.Running || isLoading}
-            text="Start"
-            className="bg-green-700"
-          />
-          <Button
-            onClick={stop}
-            disabled={!container?.State.Running || isLoading}
-            text="Stop"
-            className="bg-red-700"
+            onClick={container?.State.Running ? stop : start}
+            icon={<IoPower />}
+            disabled={isLoading}
+            className={
+              container?.State.Running ? "text-red-700" : "text-green-700"
+            }
           />
         </div>
       </div>
@@ -299,6 +304,130 @@ const Container = ({ containerName }: ContainerProps) => {
             {log}
           </div>
         ))}
+      </div>
+
+      {/* State */}
+      <div className="mt-4">
+        <table className="table-auto min-w-full">
+          <thead className="border-b border-gray-700">
+            <tr className="font-semibold">
+              <td className="px-3 py-3">State</td>
+              <td className="px-3 py-3"></td>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="px-3 py-3">Status</td>
+              <td className="px-3 py-3"> {container?.State.Status}</td>
+            </tr>
+            <tr>
+              <td className="px-3 py-3">Running</td>
+              <td className="px-3 py-3">
+                {container?.State.Running ? "true" : "false"}
+              </td>
+            </tr>
+            <tr>
+              <td className="px-3 py-3">Paused</td>
+              <td className="px-3 py-3">
+                {container?.State.Paused ? "true" : "false"}
+              </td>
+            </tr>
+            <tr>
+              <td className="px-3 py-3">Restarting</td>
+              <td className="px-3 py-3">
+                {container?.State.Restarting ? "true" : "false"}
+              </td>
+            </tr>
+            <tr>
+              <td className="px-3 py-3">Started At</td>
+              <td className="px-3 py-3">
+                {formatDateTime(container?.State.StartedAt)}
+              </td>
+            </tr>
+            <tr>
+              <td className="px-3 py-3">Finished At</td>
+              <td className="px-3 py-3">
+                {formatDateTime(container?.State.FinishedAt)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {/* Ports */}
+      <div className="mt-4">
+        <table className="table-auto min-w-full">
+          <thead className="border-b border-gray-700">
+            <tr className="font-semibold">
+              <td className="px-3 py-3">Container Port</td>
+              <td className="px-3 py-3">Host IP</td>
+              <td className="px-3 py-3">Host Port</td>
+            </tr>
+          </thead>
+          <tbody>
+            {container?.HostConfig.PortBindings &&
+              Object.entries(container.HostConfig.PortBindings).map(
+                ([containerPort, hostPorts]) => (
+                  <tr key={containerPort}>
+                    <td className="px-3 py-3">{containerPort}</td>
+                    <td className="px-3 py-3">
+                      {hostPorts.map(
+                        (hostPort) => hostPort.HostIp || "0.0.0.0"
+                      )}
+                    </td>
+                    <td className="px-3 py-3">
+                      {hostPorts.map((hostPort) => hostPort.HostPort)}
+                    </td>
+                  </tr>
+                )
+              )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mounts */}
+      <div className="mt-4">
+        <table className="table-auto min-w-full">
+          <thead className="border-b border-gray-700">
+            <tr className="font-semibold">
+              <td className="px-3 py-3">Source</td>
+              <td className="px-3 py-3">Destination</td>
+            </tr>
+          </thead>
+          <tbody>
+            {container?.Mounts &&
+              container.Mounts.map((mount) => (
+                <tr key={mount.Source}>
+                  <td className="px-3 py-3">{mount.Source}</td>
+                  <td className="px-3 py-3">{mount.Destination}</td>
+                </tr>
+              ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Env */}
+      <div className="mt-4">
+        <table className="table-auto min-w-full">
+          <thead className="border-b border-gray-700">
+            <tr className="font-semibold">
+              <td className="px-3 py-3">Name</td>
+              <td className="px-3 py-3">Value</td>
+            </tr>
+          </thead>
+          <tbody>
+            {container?.Config.Env &&
+              container.Config.Env.map((env) => {
+                const [key, value] = env.split("=");
+                return (
+                  <tr key={env}>
+                    <td className="px-3 py-3">{key}</td>
+                    <td className="px-3 py-3">{value}</td>
+                  </tr>
+                );
+              })}
+          </tbody>
+        </table>
       </div>
     </div>
   );
