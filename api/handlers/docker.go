@@ -60,6 +60,10 @@ type EventsRequest struct {
 	Options events.ListOptions
 }
 
+type ExecRequest struct {
+	Command string `json:"command"`
+}
+
 func ContainerList(c *gin.Context) {
 	var req ContainerListRequest
 	if err := c.BindJSON(&req); err != nil {
@@ -518,4 +522,31 @@ func execCommandInContainer(c *gin.Context, cli *client.Client, containerID, cmd
 	}
 
 	return output.String(), nil
+}
+
+func ExecInContainer(c *gin.Context) {
+	containerID := c.Param("id")
+	var req ExecRequest
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "invalid request"})
+		return
+	}
+
+	docker, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		c.JSON(500, gin.H{"error": fmt.Sprintf("failed to create docker client: %v", err)})
+		return
+	}
+
+	output, err := execCommandInContainer(c, docker, containerID, req.Command)
+	if err != nil {
+		c.JSON(400, gin.H{"error": fmt.Sprintf("failed to execute command: %v", err)})
+		return
+	}
+
+	if len(output) > 8 && isHeaderPresent([]byte(output)) {
+		output = output[8:]
+	}
+
+	c.JSON(200, gin.H{"output": output})
 }

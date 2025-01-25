@@ -1,9 +1,11 @@
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import Button from "./Button";
+import TabPanel from "./TabPanel";
 import { apiUrl } from "./App";
 import { Bounce, toast } from "react-toastify";
 import { IoPower } from "react-icons/io5";
+import { useUser } from "./UserContext";
 
 interface ContainerProps {
   containerName: string;
@@ -61,9 +63,12 @@ const Container = ({ containerName }: ContainerProps) => {
   const [logs, setLogs] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [container, setContainer] = useState<Container | null>(null);
+  const [command, setCommand] = useState("");
   const logContainerRef = useRef<HTMLDivElement | null>(null);
   const logEventSourceRef = useRef<EventSource | null>(null);
   const dockerEventSourceRef = useRef<EventSource | null>(null);
+  const { user } = useUser();
+  const [activeTab, setActiveTab] = useState(0);
 
   const fetchContainerDetails = async () => {
     try {
@@ -271,91 +276,158 @@ const Container = ({ containerName }: ContainerProps) => {
     });
   };
 
+  const executeCommand = async () => {
+    if (!command.trim()) return;
+    
+    try {
+      const response = await axios.post(
+        `${apiUrl}/docker/exec/${containerName}`,
+        { command },
+        { withCredentials: true }
+      );
+      
+      // Add the command and its output to the logs
+      setLogs(prev => [...prev, response.data.output]);
+      setCommand(""); // Clear the input
+      
+      // Scroll to bottom
+      if (logContainerRef.current) {
+        logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+      }
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || "Failed to execute command", {
+        position: "bottom-right",
+        autoClose: 3000,
+        hideProgressBar: true,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "colored",
+        transition: Bounce,
+      });
+    }
+  };
+
+  const capitalizeFirstLetter = (val: string) => {
+    return String(val).charAt(0).toUpperCase() + String(val).slice(1);
+}
+
   return (
-    <div className="min-w-full">
-      <div className="flex justify-between items-center">
-        <div className="flex gap-2 items-baseline">
-          <h2 className="text-2xl font-bold m-2">{containerName}</h2>
-          <span className="text-gray-500">{container?.Config.Image}</span>
+    <div className="flex flex-col h-full w-full">
+      <div className="flex items-baseline justify-between mb-4">
+        <div className="flex items-baseline space-x-2">
+          <h2 className="text-xl font-semibold">{container?.Name || containerName}</h2>
+          <span
+            className={`px-2 py-1 text-xs rounded ${
+              container?.State.Running
+                ? "bg-green-900 text-green-100"
+                : "bg-red-900 text-red-100"
+            }`}
+          >
+            {capitalizeFirstLetter(container?.State.Status || "unknown")}
+          </span>
         </div>
-
-        <div className="flex gap-2 items-center">
-          <Button
-            onClick={container?.State.Running ? stop : start}
-            icon={<IoPower />}
-            disabled={isLoading}
-            className={
-              container?.State.Running ? "text-red-700" : "text-green-700"
-            }
-          />
-        </div>
+        <Button
+          onClick={container?.State.Running ? stop : start}
+          className={`${
+            container?.State.Running ? "text-red-600" : "text-green-600"
+          } px-4 py-2 flex items-center space-x-2`}
+        >
+          <IoPower className="w-4 h-4" />
+        </Button>
       </div>
 
-      <div
-        ref={logContainerRef}
-        className="console-logs mt-4 bg-black text-white p-4 h-96 overflow-y-auto rounded-lg"
-        style={{
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-        }}
-      >
-        {logs.map((log, index) => (
-          <div key={index} className="text-sm font-mono">
-            {log}
+      {/* Tabs */}
+      <div className="border-b border-gray-700">
+        <nav className="flex space-x-4" aria-label="Tabs">
+          {['Logs', 'State', 'Ports', 'Mounts', 'Environment'].map((tab, index) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(index)}
+              className={`${
+                activeTab === index
+                  ? 'border-blue-500 text-blue-500'
+                  : 'border-transparent text-gray-500 hover:text-gray-400 hover:border-gray-300'
+              } py-2 px-3 border-b-2 font-medium text-sm`}
+            >
+              {tab}
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Logs Tab */}
+      <TabPanel value={activeTab} index={0}>
+        <div
+          ref={logContainerRef}
+          className="console-logs bg-black text-white p-4 h-96 overflow-y-auto rounded-lg"
+          style={{
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word",
+          }}
+        >
+          {logs.map((log, index) => (
+            <div key={index} className="text-sm font-mono">
+              {log}
+            </div>
+          ))}
+        </div>
+
+        {user?.role === 'admin' && container?.State.Running && (
+          <div className="mt-4 flex space-x-2">
+            <input
+              type="text"
+              value={command}
+              onChange={(e) => setCommand(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && executeCommand()}
+              placeholder="Enter command to execute..."
+              className="flex-1 px-4 py-2 bg-gray-800 text-gray-100 rounded border border-gray-700 focus:outline-none focus:border-blue-500"
+            />
+            <Button
+              onClick={executeCommand}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded"
+            >
+              Execute
+            </Button>
           </div>
-        ))}
-      </div>
+        )}
+      </TabPanel>
 
-      {/* State */}
-      <div className="mt-4">
+      {/* State Tab */}
+      <TabPanel value={activeTab} index={1}>
         <table className="table-auto min-w-full">
-          <thead className="border-b border-gray-700">
-            <tr className="font-semibold">
-              <td className="px-3 py-3">State</td>
-              <td className="px-3 py-3"></td>
-            </tr>
-          </thead>
           <tbody>
             <tr>
               <td className="px-3 py-3">Status</td>
-              <td className="px-3 py-3"> {container?.State.Status}</td>
+              <td className="px-3 py-3">{container?.State.Status}</td>
             </tr>
             <tr>
               <td className="px-3 py-3">Running</td>
-              <td className="px-3 py-3">
-                {container?.State.Running ? "true" : "false"}
-              </td>
+              <td className="px-3 py-3">{container?.State.Running ? "true" : "false"}</td>
             </tr>
             <tr>
               <td className="px-3 py-3">Paused</td>
-              <td className="px-3 py-3">
-                {container?.State.Paused ? "true" : "false"}
-              </td>
+              <td className="px-3 py-3">{container?.State.Paused ? "true" : "false"}</td>
             </tr>
             <tr>
               <td className="px-3 py-3">Restarting</td>
-              <td className="px-3 py-3">
-                {container?.State.Restarting ? "true" : "false"}
-              </td>
+              <td className="px-3 py-3">{container?.State.Restarting ? "true" : "false"}</td>
             </tr>
             <tr>
               <td className="px-3 py-3">Started At</td>
-              <td className="px-3 py-3">
-                {formatDateTime(container?.State.StartedAt)}
-              </td>
+              <td className="px-3 py-3">{formatDateTime(container?.State.StartedAt)}</td>
             </tr>
             <tr>
               <td className="px-3 py-3">Finished At</td>
-              <td className="px-3 py-3">
-                {formatDateTime(container?.State.FinishedAt)}
-              </td>
+              <td className="px-3 py-3">{formatDateTime(container?.State.FinishedAt)}</td>
             </tr>
           </tbody>
         </table>
-      </div>
+      </TabPanel>
 
-      {/* Ports */}
-      <div className="mt-4">
+      {/* Ports Tab */}
+      <TabPanel value={activeTab} index={2}>
         <table className="table-auto min-w-full">
           <thead className="border-b border-gray-700">
             <tr className="font-semibold">
@@ -371,9 +443,7 @@ const Container = ({ containerName }: ContainerProps) => {
                   <tr key={containerPort}>
                     <td className="px-3 py-3">{containerPort}</td>
                     <td className="px-3 py-3">
-                      {hostPorts.map(
-                        (hostPort) => hostPort.HostIp || "0.0.0.0"
-                      )}
+                      {hostPorts.map((hostPort) => hostPort.HostIp || "0.0.0.0")}
                     </td>
                     <td className="px-3 py-3">
                       {hostPorts.map((hostPort) => hostPort.HostPort)}
@@ -383,10 +453,10 @@ const Container = ({ containerName }: ContainerProps) => {
               )}
           </tbody>
         </table>
-      </div>
+      </TabPanel>
 
-      {/* Mounts */}
-      <div className="mt-4">
+      {/* Mounts Tab */}
+      <TabPanel value={activeTab} index={3}>
         <table className="table-auto min-w-full">
           <thead className="border-b border-gray-700">
             <tr className="font-semibold">
@@ -404,10 +474,10 @@ const Container = ({ containerName }: ContainerProps) => {
               ))}
           </tbody>
         </table>
-      </div>
+      </TabPanel>
 
-      {/* Env */}
-      <div className="mt-4">
+      {/* Environment Tab */}
+      <TabPanel value={activeTab} index={4}>
         <table className="table-auto min-w-full">
           <thead className="border-b border-gray-700">
             <tr className="font-semibold">
@@ -428,7 +498,7 @@ const Container = ({ containerName }: ContainerProps) => {
               })}
           </tbody>
         </table>
-      </div>
+      </TabPanel>
     </div>
   );
 };

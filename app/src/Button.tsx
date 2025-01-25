@@ -1,12 +1,15 @@
+import React from 'react';
+
 interface ButtonProps {
   onClick: () => void;
   icon?: React.ReactNode;
   text?: string;
   className?: string;
   disabled?: boolean;
+  children?: React.ReactNode;
 }
 
-const Button = ({ onClick, icon, text, className, disabled }: ButtonProps) => {
+const Button = ({ onClick, icon, text, className, disabled, children }: ButtonProps) => {
   return (
     <button
       className={`flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 ${className} ${
@@ -18,8 +21,10 @@ const Button = ({ onClick, icon, text, className, disabled }: ButtonProps) => {
     >
       {icon && <span>{icon}</span>}
       {text && <span>{text}</span>}
+      {children}
     </button>
   );
 };
 
 export default Button;
+export type { ButtonProps };

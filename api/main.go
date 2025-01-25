@@ -56,6 +56,7 @@ func main() {
 	r.GET("/docker/logs/:id", middlewares.CheckUser, middlewares.RequireUser, handlers.Logs)
 	r.GET("/docker/events", middlewares.CheckUser, middlewares.RequireUser, handlers.StreamDockerEvents)
 	r.GET("/docker/connections", handlers.GetContainerConnections)
+	r.POST("/docker/exec/:id", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.ExecInContainer)
 
 	// OAuth Routes
 	r.GET("/signin", handlers.Login)
