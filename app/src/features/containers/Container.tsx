@@ -111,14 +111,22 @@ const Container = () => {
 
       dockerEventSourceRef.current.onmessage = (event) => {
         const eventData = JSON.parse(event.data);
-
-        if (eventData.attributes?.name === id) {
-          if (
-            ["start", "stop", "die", "kill", "destroy"].includes(
-              eventData.action
-            )
-          ) {
-            fetchContainerDetails();
+        
+        // Check if this event is for a container
+        if (eventData.event_type === "container") {
+          // Get the container name from attributes
+          const containerName = eventData.attributes?.name;
+          
+          // Check if this event is for our container
+          if (containerName && containerName.replace("/", "") === id) {
+            if (
+              ["start", "stop"].includes(
+                eventData.action
+              )
+            ) {
+              console.log("Container event detected, refreshing container details");
+              fetchContainerDetails();
+            }
           }
         }
       };
@@ -126,6 +134,8 @@ const Container = () => {
       dockerEventSourceRef.current.onerror = (error) => {
         console.error("Docker EventSource failed:", error);
         disconnectDockerEvents();
+        // Try to reconnect after a delay
+        setTimeout(connectToDockerEvents, 5000);
       };
     }
   };

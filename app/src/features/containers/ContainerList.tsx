@@ -54,16 +54,21 @@ const ContainerList = () => {
       dockerEventSourceRef.current.onmessage = (event) => {
         const eventData = JSON.parse(event.data);
 
+        // Only handle container events
         if (
-          ["start", "stop", "die", "kill", "destroy"].includes(eventData.action)
+          eventData.event_type === "container" &&
+          ["start", "stop", "die", "kill", "destroy", "create", "remove"].includes(eventData.action)
         ) {
-          fetchContainers();
+          // Add a small delay to ensure Docker's state is updated
+          setTimeout(fetchContainers, 100);
         }
       };
 
       dockerEventSourceRef.current.onerror = (error) => {
         console.error("Docker EventSource failed:", error);
         disconnectDockerEvents();
+        // Try to reconnect after a delay
+        setTimeout(connectToDockerEvents, 5000);
       };
     }
   };
