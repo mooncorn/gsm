@@ -96,37 +96,41 @@ const ContainerList = () => {
           </span>
         </td>
         <td className="px-3 py-3">{c.Image}</td>
-        <td className="flex items-center gap-2 px-3 py-3">
-          <span
-            className={`inline-block w-2 h-2 rounded-full ${
-              c?.State === "running" ? "bg-green-700" : "bg-red-700"
-            }`}
-          />
-          <span>{c.Status}</span>
+        <td className="px-3 py-3">
+          <div className="flex items-center gap-2">
+            <span
+              className={`inline-flex w-2 h-2 rounded-full shrink-0 ${
+                c?.State === "running" ? "bg-green-700" : "bg-red-700"
+              }`}
+            />
+            <span>{c.Status}</span>
+          </div>
         </td>
       </tr>
     ));
   };
 
   return (
-    <div className="min-w-full">
-      <div className="flex justify-between items-center">
+    <div className="min-w-full overflow-x-auto">
+      <div className="flex flex-wrap justify-between items-center">
         <h2 className="text-2xl font-bold m-2">Containers</h2>
         <div className="flex gap-2">
           <Button onClick={fetchContainers} icon={<FaPlus />} />
           <Button onClick={fetchContainers} icon={<HiOutlineRefresh />} />
         </div>
       </div>
-      <table className="table-auto min-w-full">
-        <thead className="border-b border-gray-700 hover:bg-gray-800">
-          <tr className="font-semibold">
-            <td className="px-3 py-3">Name</td>
-            <td className="px-3 py-3">Image</td>
-            <td className="px-3 py-3">Status</td>
-          </tr>
-        </thead>
-        <tbody>{mapContainers()}</tbody>
-      </table>
+      <div className="overflow-y-auto max-h-screen">
+        <table className="table-auto min-w-full">
+          <thead className="border-b border-gray-700 hover:bg-gray-800">
+            <tr className="font-semibold">
+              <td className="px-3 py-3">Name</td>
+              <td className="px-3 py-3">Image</td>
+              <td className="px-3 py-3">Status</td>
+            </tr>
+          </thead>
+          <tbody>{mapContainers()}</tbody>
+        </table>
+      </div>
     </div>
   );
 };

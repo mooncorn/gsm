@@ -22,7 +22,7 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <Header />
+      <Header className="sticky top-0 z-50" />
       
       <div className="flex">
         {/* Mobile menu button */}
@@ -38,7 +38,7 @@ const Dashboard = () => {
         {/* Vertical Menu */}
         <aside className={`
           fixed lg:static lg:block
-          w-64 h-[calc(100vh-64px)] 
+          w-64 h-[calc(100vh-56px)] 
           bg-gray-800 border-r border-gray-700
           transition-transform duration-300 ease-in-out
           ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
@@ -65,7 +65,7 @@ const Dashboard = () => {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-4 lg:p-6">
+        <main className="w-full p-4 lg:p-6">
           <div className="max-w-6xl mx-auto">
             <Routes>
               <Route path="containers" element={<ContainerList />} />

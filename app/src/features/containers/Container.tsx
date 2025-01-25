@@ -303,7 +303,7 @@ const Container = () => {
           <Button
             onClick={container?.State.Running ? stop : start}
             className={`${
-              container?.State.Running ? "text-red-700" : "text-green-700"
+              container?.State.Running ? "text-red-800" : "text-green-800"
             } px-4 py-2 flex items-center space-x-2`}
             disabled={isLoading}
             icon={<IoPower className={`w-4 h-4 ${isLoading ? 'opacity-50' : ''}`} />}
@@ -333,7 +333,7 @@ const Container = () => {
         <TabPanel value={activeTab} index={0}>
           <div
             ref={logContainerRef}
-            className="console-logs bg-black text-white p-2 sm:p-4 h-96 overflow-y-auto rounded-lg"
+            className="nice-scrollbar bg-black text-white p-2 sm:p-4 h-96 overflow-y-auto rounded-lg"
             style={{
               whiteSpace: "pre-wrap",
               wordBreak: "break-word",
