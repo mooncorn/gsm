@@ -289,17 +289,22 @@ const Container = () => {
       </div>
 
       <div className="flex flex-col h-full w-full">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-2 sm:gap-0">
-          <div className="flex items-center space-x-2">
-            <h2 className="text-lg sm:text-xl font-semibold break-all">{container?.Name || id}</h2>
-            <span
-              className={`px-2 py-1 text-xs rounded whitespace-nowrap ${
-                container?.State.Running
-                  ? "bg-green-900 text-green-100"
-                  : "bg-red-900 text-red-100"
-              }`}
-            >
-              {capitalizeFirstLetter(container?.State.Status || "unknown")}
+        <div className="flex flex-row items-end justify-between mb-4 gap-0">
+          <div className="flex flex-col space-y-2">
+            <div className="flex items-center space-x-2">
+              <h2 className="text-lg sm:text-xl font-semibold break-all">{container?.Name || id}</h2>
+              <span
+                className={`px-2 py-1 text-xs rounded whitespace-nowrap ${
+                  container?.State.Running
+                    ? "bg-green-900 text-green-100"
+                    : "bg-red-900 text-red-100"
+                }`}
+              >
+                {capitalizeFirstLetter(container?.State.Status || "unknown")}
+              </span>
+            </div>
+            <span className="text-sm text-gray-400">
+              {container?.Config.Image}
             </span>
           </div>
           <Button
@@ -308,7 +313,7 @@ const Container = () => {
               container?.State.Running ? "bg-red-800 hover:bg-red-600" : "bg-green-800 hover:bg-green-600"
             } px-4 py-2 flex items-center space-x-2`}
             disabled={isLoading}
-            icon={<IoPower className={`${isLoading ? 'opacity-50' : ''}`} />}
+            icon={<IoPower className={isLoading ? 'opacity-50' : ''} />}
           />
         </div>
 
