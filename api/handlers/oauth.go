@@ -91,12 +91,14 @@ func OAuthCallback(c *gin.Context, db *gorm.DB) {
 		return
 	}
 
-	// Extract the email from the ID token
+	// Extract the email and picture from the ID token
 	email, ok := payload.Claims["email"].(string)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Email not found in token"})
 		return
 	}
+
+	picture, _ := payload.Claims["picture"].(string)
 
 	// Check if the user is allowed to sign in
 	var allowedUser models.AllowedUser
@@ -107,8 +109,9 @@ func OAuthCallback(c *gin.Context, db *gorm.DB) {
 
 	// Create a new user instance or update existing one
 	user := models.User{
-		Email: email,
-		Role:  allowedUser.Role,
+		Email:   email,
+		Role:    allowedUser.Role,
+		Picture: picture,
 	}
 
 	var existingUser models.User
@@ -131,10 +134,11 @@ func OAuthCallback(c *gin.Context, db *gorm.DB) {
 
 	// Generate JWT token for the user
 	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"id":    user.ID,
-		"email": user.Email,
-		"role":  user.Role,
-		"exp":   time.Now().Add(time.Hour * 72).Unix(),
+		"id":      user.ID,
+		"email":   user.Email,
+		"role":    user.Role,
+		"picture": user.Picture,
+		"exp":     time.Now().Add(time.Hour * 72).Unix(),
 	})
 	tokenString, err := jwtToken.SignedString([]byte(os.Getenv("JWT_SECRET")))
 	if err != nil {

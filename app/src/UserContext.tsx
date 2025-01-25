@@ -5,6 +5,7 @@ import { apiUrl } from './App';
 interface User {
   email: string;
   role: string;
+  picture?: string;
 }
 
 interface UserContextType {

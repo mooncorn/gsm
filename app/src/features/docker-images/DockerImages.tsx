@@ -1,4 +1,4 @@
-const Images = () => {
+const DockerImages = () => {
   return (
     <div className="">
       <h2 className="text-2xl font-bold mb-4">Images</h2>
@@ -20,4 +20,4 @@ const Images = () => {
   );
 };
 
-export default Images;
+export default DockerImages;

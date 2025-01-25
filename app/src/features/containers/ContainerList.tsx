@@ -1,42 +1,17 @@
 import axios from "axios";
 import { useEffect, useRef, useState } from "react";
-import { apiUrl } from "./App";
+import { useNavigate } from "react-router-dom";
+import { apiUrl } from "../../App";
 import { toast } from "react-toastify";
-import { default as ContainerComponent } from "./Container";
-import Button from "./Button";
+import Button from "../../components/ui/Button";
 import { HiOutlineRefresh } from "react-icons/hi";
 import { FaPlus } from "react-icons/fa6";
+import { ContainerListItem } from "../../types/docker";
 
-interface Mount {
-  Type: string;
-  Source: string;
-  Destination: string;
-}
-
-interface Port {
-  IP?: string;
-  PrivatePort?: number;
-  PublicPort?: number;
-  Type?: string;
-}
-
-interface Container {
-  Id: string;
-  Names: string[];
-  Image: string;
-  Labels: string[];
-  State: string;
-  Status: string;
-  Mounts: Mount[];
-  Ports: Port[];
-}
-
-const Containers = () => {
-  const [containers, setContainers] = useState<Container[]>([]);
-  const [selectedContainer, setSelectedContainer] = useState<Container | null>(
-    null
-  );
+const ContainerList = () => {
+  const [containers, setContainers] = useState<ContainerListItem[]>([]);
   const dockerEventSourceRef = useRef<EventSource | null>(null);
+  const navigate = useNavigate();
 
   const fetchContainers = async () => {
     try {
@@ -100,7 +75,7 @@ const Containers = () => {
     }
   };
 
-  const getContainerName = (container: Container) => {
+  const getContainerName = (container: ContainerListItem) => {
     return container.Names[0].replace("/", "");
   };
 
@@ -110,7 +85,7 @@ const Containers = () => {
         <td className="px-2 py-2">
           <span
             className="hover:underline cursor-pointer text-blue-300"
-            onClick={() => setSelectedContainer(c)}
+            onClick={() => navigate(`/containers/${getContainerName(c)}`)}
           >
             {getContainerName(c)}
           </span>
@@ -127,11 +102,6 @@ const Containers = () => {
       </tr>
     ));
   };
-
-  if (selectedContainer)
-    return (
-      <ContainerComponent containerName={getContainerName(selectedContainer)} />
-    );
 
   return (
     <div className="min-w-full">
@@ -156,4 +126,4 @@ const Containers = () => {
   );
 };
 
-export default Containers;
+export default ContainerList;

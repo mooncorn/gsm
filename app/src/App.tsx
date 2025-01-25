@@ -3,9 +3,10 @@ import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import React from "react";
-import Login from "./SignIn";
+import { BrowserRouter } from "react-router-dom";
+import SignIn from "./features/auth/SignIn";
 import { ToastContainer } from "react-toastify";
-import Dashboard from "./Dashboard";
+import Dashboard from "./features/dashboard/Dashboard";
 import { UserProvider, useUser } from "./UserContext";
 
 export const apiUrl = import.meta.env.VITE_API_URL;
@@ -15,7 +16,7 @@ const AppContent: React.FC = () => {
 
   return (
     <>
-      {!user ? <Login /> : <Dashboard user={user} />}
+      {!user ? <SignIn /> : <Dashboard />}
       <ToastContainer />
     </>
   );
@@ -23,9 +24,11 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-    <UserProvider>
-      <AppContent />
-    </UserProvider>
+    <BrowserRouter>
+      <UserProvider>
+        <AppContent />
+      </UserProvider>
+    </BrowserRouter>
   );
 };
 
