@@ -305,10 +305,10 @@ const Container = () => {
           <Button
             onClick={container?.State.Running ? stop : start}
             className={`${
-              container?.State.Running ? "text-red-800" : "text-green-800"
+              container?.State.Running ? "bg-red-800 hover:bg-red-600" : "bg-green-800 hover:bg-green-600"
             } px-4 py-2 flex items-center space-x-2`}
             disabled={isLoading}
-            icon={<IoPower className={`w-4 h-4 ${isLoading ? 'opacity-50' : ''}`} />}
+            icon={<IoPower className={`${isLoading ? 'opacity-50' : ''}`} />}
           />
         </div>
 
