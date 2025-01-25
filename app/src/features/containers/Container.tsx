@@ -102,11 +102,13 @@ const Container = () => {
 
   const connectToDockerEvents = () => {
     if (!dockerEventSourceRef.current) {
+      const eventSourceInit: EventSourceInit = {
+        withCredentials: true,
+      };
+      
       dockerEventSourceRef.current = new EventSource(
         `${apiUrl}/docker/events`,
-        {
-          withCredentials: true,
-        }
+        eventSourceInit
       );
 
       dockerEventSourceRef.current.onmessage = (event) => {
@@ -132,7 +134,7 @@ const Container = () => {
       };
 
       dockerEventSourceRef.current.onerror = (error) => {
-        console.error("Docker EventSource failed:", error);
+        console.error("Docker EventSource error:", error);
         disconnectDockerEvents();
         // Try to reconnect after a delay
         setTimeout(connectToDockerEvents, 5000);

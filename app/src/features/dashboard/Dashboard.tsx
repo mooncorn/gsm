@@ -38,7 +38,7 @@ const Dashboard = () => {
         {/* Vertical Menu */}
         <aside className={`
           fixed lg:static lg:block
-          w-64 h-[calc(100vh-56px)] 
+          w-64 h-[calc(100vh-57px)] 
           bg-gray-800 border-r border-gray-700
           transition-transform duration-300 ease-in-out
           ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}

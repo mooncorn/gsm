@@ -57,7 +57,7 @@ const ContainerList = () => {
         // Only handle container events
         if (
           eventData.event_type === "container" &&
-          ["start", "stop", "die", "kill", "destroy", "create", "remove"].includes(eventData.action)
+          ["start", "die", "create", "remove"].includes(eventData.action)
         ) {
           // Add a small delay to ensure Docker's state is updated
           setTimeout(fetchContainers, 100);
