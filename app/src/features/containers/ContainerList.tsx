@@ -7,13 +7,11 @@ import Button from "../../components/ui/Button";
 import { HiOutlineRefresh } from "react-icons/hi";
 import { FaPlus } from "react-icons/fa6";
 import { ContainerListItem } from "../../types/docker";
-import CreateContainer from "./CreateContainer";
 
 const ContainerList = () => {
   const [containers, setContainers] = useState<ContainerListItem[]>([]);
   const dockerEventSourceRef = useRef<EventSource | null>(null);
   const navigate = useNavigate();
-  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const fetchContainers = async () => {
     try {
@@ -61,7 +59,6 @@ const ContainerList = () => {
           eventData.event_type === "container" &&
           ["start", "die", "create", "remove"].includes(eventData.action)
         ) {
-          // Add a small delay to ensure Docker's state is updated
           fetchContainers();
         }
       };
@@ -117,17 +114,13 @@ const ContainerList = () => {
       <div className="flex flex-wrap justify-between items-center">
         <h2 className="text-2xl font-bold m-2">Containers</h2>
         <div className="flex gap-2">
-          <Button onClick={() => setShowCreateModal(true)} icon={<FaPlus />} />
+          <Button 
+            onClick={() => navigate("/containers/create")} 
+            icon={<FaPlus />}
+          />
           <Button onClick={fetchContainers} icon={<HiOutlineRefresh />} />
         </div>
       </div>
-      
-      {showCreateModal && (
-        <CreateContainer
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={fetchContainers}
-        />
-      )}
       
       <div className="overflow-y-auto max-h-screen">
         <table className="table-auto min-w-full">

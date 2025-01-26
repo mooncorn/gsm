@@ -4,6 +4,7 @@ import { TbBox, TbPhoto, TbUsers } from "react-icons/tb";
 import Header from "../../components/ui/Header";
 import ContainerList from "../containers/ContainerList";
 import Container from "../containers/Container";
+import CreateContainer from "../containers/CreateContainer";
 import DockerImages from "../docker-images/DockerImages";
 import Users from "../users/Users";
 import { useUser } from "../../UserContext";
@@ -69,6 +70,7 @@ const Dashboard = () => {
           <div className="max-w-6xl mx-auto">
             <Routes>
               <Route path="containers" element={<ContainerList />} />
+              <Route path="containers/create" element={<CreateContainer />} />
               <Route path="containers/:id" element={<Container />} />
               <Route path="images" element={<DockerImages />} />
               <Route path="users" element={<Users />} />

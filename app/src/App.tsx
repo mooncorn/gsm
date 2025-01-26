@@ -15,10 +15,10 @@ const AppContent: React.FC = () => {
   const { user } = useUser();
 
   return (
-    <>
+    <div>
       {!user ? <SignIn /> : <Dashboard />}
       <ToastContainer />
-    </>
+    </div>
   );
 };
 

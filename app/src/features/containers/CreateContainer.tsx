@@ -5,13 +5,11 @@ import { toast, Bounce } from "react-toastify";
 import Button from "../../components/ui/Button";
 import { IoAddCircleOutline } from "react-icons/io5";
 import { IoRemoveCircleOutline } from "react-icons/io5";
+import { useNavigate } from "react-router-dom";
+import { IoArrowBack } from "react-icons/io5";
 
-interface CreateContainerProps {
-  onClose: () => void;
-  onSuccess: () => void;
-}
-
-const CreateContainer = ({ onClose, onSuccess }: CreateContainerProps) => {
+const CreateContainer = () => {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     containerName: "",
     image: "",
@@ -67,8 +65,7 @@ const CreateContainer = ({ onClose, onSuccess }: CreateContainerProps) => {
         transition: Bounce,
       });
 
-      onSuccess();
-      onClose();
+      navigate("/containers");
     } catch (err: any) {
       toast.error(err.response?.data?.error || "Failed to create container", {
         position: "bottom-right",
@@ -127,10 +124,19 @@ const CreateContainer = ({ onClose, onSuccess }: CreateContainerProps) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4">
-      <div className="nice-scrollbar bg-gray-800 rounded-lg p-4 sm:p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
-        <h2 className="text-lg sm:text-xl font-bold mb-4">Create Container</h2>
-        
+    <div className="p-4 sm:p-6">
+      <div className="flex items-center gap-4 mb-6">
+        <Button
+          onClick={() => navigate("/containers")}
+          icon={<IoArrowBack className="h-5 w-5" />}
+          className="bg-gray-700 hover:bg-gray-600"
+        >
+          Back to Containers
+        </Button>
+        <h2 className="text-2xl font-bold">Create Container</h2>
+      </div>
+      
+      <div className="max-w-2xl">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-1">Container Name</label>
@@ -286,17 +292,17 @@ const CreateContainer = ({ onClose, onSuccess }: CreateContainerProps) => {
             </Button>
           </div>
 
-          <div className="flex flex-col sm:flex-row justify-end gap-2 mt-6">
+          <div className="flex justify-end gap-2 mt-6">
             <Button
               type="button"
-              onClick={onClose}
-              className="w-full sm:w-auto bg-gray-700 hover:bg-gray-600"
+              onClick={() => navigate("/containers")}
+              className="bg-gray-700 hover:bg-gray-600"
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600"
+              className="bg-blue-500 hover:bg-blue-600"
             >
               Create
             </Button>

@@ -122,13 +122,12 @@ const Container = () => {
           // Check if this event is for our container
           if (containerName && containerName.replace("/", "") === id) {
             if (
-              ["start", "stop"].includes(
+              ["start", "die"].includes(
                 eventData.action
               )
             ) {
-              console.log("Container event detected, refreshing container details");
               fetchContainerDetails();
-            }
+            } 
           }
         }
       };
