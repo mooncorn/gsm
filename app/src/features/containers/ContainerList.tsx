@@ -10,11 +10,13 @@ import { ContainerListItem } from "../../types/docker";
 
 const ContainerList = () => {
   const [containers, setContainers] = useState<ContainerListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const dockerEventSourceRef = useRef<EventSource | null>(null);
   const navigate = useNavigate();
 
   const fetchContainers = async () => {
     try {
+      setIsLoading(true);
       const response = await axios.post(
         `${apiUrl}/docker/ps`,
         {
@@ -25,10 +27,13 @@ const ContainerList = () => {
         }
       );
       setContainers(response.data);
+      
     } catch (err: any) {
       toast(err.response?.data?.error || "Failed to fetch containers", {
         type: "error",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -118,7 +123,11 @@ const ContainerList = () => {
             onClick={() => navigate("/containers/create")} 
             icon={<FaPlus />}
           />
-          <Button onClick={fetchContainers} icon={<HiOutlineRefresh />} />
+          <Button
+          onClick={fetchContainers}
+          icon={<HiOutlineRefresh className={isLoading ? "animate-spin" : ""} />}
+          disabled={isLoading}
+        />
         </div>
       </div>
       

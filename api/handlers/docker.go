@@ -105,19 +105,13 @@ func InspectContainer(c *gin.Context) {
 }
 
 func ImageList(c *gin.Context) {
-	var req ImageListRequest
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "invalid request"})
-		return
-	}
-
 	docker, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		c.JSON(500, gin.H{"error": fmt.Sprintf("failed to create docker client: %v", err)})
 		return
 	}
 
-	images, err := docker.ImageList(c, req.Options)
+	images, err := docker.ImageList(c, image.ListOptions{})
 	if err != nil {
 		c.JSON(400, gin.H{"error": fmt.Sprintf("failed to list images: %v", err)})
 		return
@@ -173,9 +167,9 @@ func Rm(c *gin.Context) {
 }
 
 func Pull(c *gin.Context) {
-	var req PullRequest
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "invalid request"})
+	imageName := c.Query("imageName")
+	if imageName == "" {
+		c.JSON(400, gin.H{"error": "image name is required"})
 		return
 	}
 
@@ -186,7 +180,7 @@ func Pull(c *gin.Context) {
 	}
 
 	// Pull the image
-	pullStream, err := docker.ImagePull(c, req.ImageName, req.Options)
+	pullStream, err := docker.ImagePull(c, imageName, image.PullOptions{})
 	if err != nil {
 		c.JSON(400, gin.H{"error": fmt.Sprintf("failed to pull image: %v", err)})
 		return
@@ -197,27 +191,46 @@ func Pull(c *gin.Context) {
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 
-	// Buffer to read pull data
-	buf := make([]byte, 1024)
-	for {
-		n, err := pullStream.Read(buf)
-		if n > 0 {
-			c.Writer.Write([]byte("data: " + string(buf[:n]) + "\n\n"))
-			c.Writer.Flush()
+	// Use scanner to read line by line
+	scanner := bufio.NewScanner(pullStream)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// Parse the JSON line
+		var pullResult map[string]interface{}
+		if err := json.Unmarshal([]byte(line), &pullResult); err != nil {
+			continue // Skip invalid JSON lines
 		}
-		if err != nil {
-			if err == io.EOF {
-				c.Writer.Write([]byte("data: [EOF]\n\n"))
+
+		// Check for error messages
+		if errorDetail, ok := pullResult["errorDetail"].(map[string]interface{}); ok {
+			if message, ok := errorDetail["message"].(string); ok {
+				c.Writer.Write([]byte(fmt.Sprintf("data: {\"error\": \"%s\"}\n\n", message)))
 				c.Writer.Flush()
-				break
+				return
 			}
-			if c.Writer.Written() {
-				return // Handle client disconnection gracefully
-			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("log stream error: %v", err)})
+		}
+
+		// Send the progress update
+		c.Writer.Write([]byte("data: " + line + "\n\n"))
+		c.Writer.Flush()
+	}
+
+	if err := scanner.Err(); err != nil {
+		if err == io.EOF {
+			c.Writer.Write([]byte("data: [EOF]\n\n"))
+			c.Writer.Flush()
 			return
 		}
+		if c.Writer.Written() {
+			return // Handle client disconnection gracefully
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("log stream error: %v", err)})
+		return
 	}
+
+	c.Writer.Write([]byte("data: [EOF]\n\n"))
+	c.Writer.Flush()
 }
 
 func Start(c *gin.Context) {
@@ -549,4 +562,22 @@ func ExecInContainer(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{"output": output})
+}
+
+func RmImage(c *gin.Context) {
+	id := c.Param("id")
+
+	docker, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		c.JSON(500, gin.H{"error": fmt.Sprintf("failed to create docker client: %v", err)})
+		return
+	}
+
+	_, err = docker.ImageRemove(c, id, image.RemoveOptions{Force: true})
+	if err != nil {
+		c.JSON(400, gin.H{"error": fmt.Sprintf("failed to remove image: %v", err)})
+		return
+	}
+
+	c.Status(200)
 }

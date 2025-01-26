@@ -61,4 +61,27 @@ export interface ContainerDetails {
   HostConfig: {
     PortBindings: Record<string, Port[]>;
   };
+}
+
+export interface DockerImage {
+  Id: string;
+  ParentId: string;
+  RepoTags: string[];
+  RepoDigests: string[];
+  Created: number;
+  Size: number;
+  VirtualSize: number;
+  SharedSize: number;
+  Labels: { [key: string]: string };
+  Containers: number;
+}
+
+export interface PullProgress {
+  status: string;
+  progressDetail?: {
+    current: number;
+    total: number;
+  };
+  progress?: string;
+  id?: string;
 } 
