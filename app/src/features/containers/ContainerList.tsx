@@ -88,20 +88,20 @@ const ContainerList = () => {
     return container.Names[0].replace("/", "");
   };
 
-  const mapContainers = () => {
+  const renderContainerCards = () => {
     return containers.map((c) => (
-      <tr className="hover:bg-gray-800" key={c.Id}>
-        <td className="px-2 py-2">
-          <span
-            className="hover:underline cursor-pointer text-blue-300"
+      <div
+        key={c.Id}
+        className="bg-gray-800 rounded-lg p-4 hover:bg-gray-700 transition-colors duration-200"
+      >
+        <div className="flex items-center justify-between gap-4 mb-2">
+          <div 
+            className="text-blue-300 hover:underline cursor-pointer text-lg font-medium"
             onClick={() => navigate(`/containers/${getContainerName(c)}`)}
           >
             {getContainerName(c)}
-          </span>
-        </td>
-        <td className="px-3 py-3">{c.Image}</td>
-        <td className="px-3 py-3">
-          <div className="flex items-center gap-2">
+          </div>
+          <div className="flex items-center gap-2 text-sm">
             <span
               className={`inline-flex w-2 h-2 rounded-full shrink-0 ${
                 c?.State === "running" ? "bg-green-700" : "bg-red-700"
@@ -109,39 +109,34 @@ const ContainerList = () => {
             />
             <span>{c.Status}</span>
           </div>
-        </td>
-      </tr>
+        </div>
+        <div className="text-sm text-gray-400 break-all">
+          {c.Image}
+        </div>
+      </div>
     ));
   };
 
   return (
-    <div className="min-w-full overflow-x-auto">
-      <div className="flex flex-wrap justify-between items-center">
-        <h2 className="text-2xl font-bold m-2">Containers</h2>
+    <div className="space-y-4">
+      <div className="flex flex-wrap justify-between items-center gap-4">
+        <h2 className="text-2xl font-bold">Containers</h2>
         <div className="flex gap-2">
           <Button 
             onClick={() => navigate("/containers/create")} 
             icon={<FaPlus />}
           />
           <Button
-          onClick={fetchContainers}
-          icon={<HiOutlineRefresh className={isLoading ? "animate-spin" : ""} />}
-          disabled={isLoading}
-        />
+            onClick={fetchContainers}
+            icon={<HiOutlineRefresh className={isLoading ? "animate-spin" : ""} />}
+            disabled={isLoading}
+          />
         </div>
       </div>
       
-      <div className="overflow-y-auto max-h-screen">
-        <table className="table-auto min-w-full">
-          <thead className="border-b border-gray-700 hover:bg-gray-800">
-            <tr className="font-semibold">
-              <td className="px-3 py-3">Name</td>
-              <td className="px-3 py-3">Image</td>
-              <td className="px-3 py-3">Status</td>
-            </tr>
-          </thead>
-          <tbody>{mapContainers()}</tbody>
-        </table>
+      {/* Mobile and Desktop Views */}
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+        {renderContainerCards()}
       </div>
     </div>
   );

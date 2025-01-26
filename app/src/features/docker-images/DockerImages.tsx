@@ -197,10 +197,57 @@ const DockerImages = () => {
     }
   };
 
+  const renderImageCards = () => {
+    return images.map((image) => {
+      const [repo, tag] = (image.RepoTags?.[0] || ":").split(":");
+      return (
+        <div
+          key={image.Id}
+          className="bg-gray-800 rounded-lg p-4 hover:bg-gray-700 transition-colors duration-200"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="text-lg font-medium mb-1 break-all">
+                {repo || "<none>"}
+              </div>
+              <div className="text-sm text-gray-400 space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Tag:</span>
+                  <span className="break-all">{tag || "<none>"}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">ID:</span>
+                  <span className="font-mono">
+                    {image.Id.replace("sha256:", "").substring(0, 12)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Created:</span>
+                  <span>{formatDate(new Date(image.Created * 1000))}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">Size:</span>
+                  <span>{formatBytes(image.Size)}</span>
+                </div>
+              </div>
+            </div>
+            {user?.role === "admin" && (
+              <Button
+                onClick={() => deleteImage(image.Id)}
+                className="bg-red-800 hover:bg-red-700 shrink-0"
+                icon={<FaTrash />}
+              />
+            )}
+          </div>
+        </div>
+      );
+    });
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold m-2">Images</h2>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <h2 className="text-2xl font-bold">Images</h2>
         <Button
           onClick={fetchImages}
           icon={<HiOutlineRefresh className={isLoading ? "animate-spin" : ""} />}
@@ -209,7 +256,7 @@ const DockerImages = () => {
       </div>
 
       {user?.role === "admin" && (
-        <form onSubmit={pullImage} className="flex gap-2">
+        <form onSubmit={pullImage} className="flex flex-col sm:flex-row gap-2">
           <input
             type="text"
             value={imageName}
@@ -260,61 +307,9 @@ const DockerImages = () => {
         </div>
       )}
 
-      {/* Images Table */}
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-700">
-          <thead>
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                Repository
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                Tag
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                Image ID
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                Created
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider">
-                Size
-              </th>
-              {user?.role === "admin" && (
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-300 uppercase tracking-wider">
-                  Actions
-                </th>
-              )}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-700">
-            {images.map((image) => {
-              const [repo, tag] = (image.RepoTags?.[0] || ":").split(":");
-              return (
-                <tr key={image.Id} className="hover:bg-gray-800">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">{repo || "<none>"}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">{tag || "<none>"}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
-                    {image.Id.replace("sha256:", "").substring(0, 12)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {formatDate(new Date(image.Created * 1000))}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">{formatBytes(image.Size)}</td>
-                  {user?.role === "admin" && (
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                      <Button
-                        onClick={() => deleteImage(image.Id)}
-                        className="bg-red-800 hover:bg-red-700"
-                        icon={<FaTrash />}
-                      />
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+      {/* Image Cards */}
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+        {renderImageCards()}
       </div>
     </div>
   );
