@@ -2,7 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Add this in your index.css or App component CSS section */
+#root {
+  height: 100%;
+  overflow-y: auto;
+  background-color: rgb(17 24 39); /* bg-gray-900 */
+}
+
+html, body {
+  overscroll-behavior: none;
+  overflow-x: hidden;
+  height: 100%;
+  position: fixed;
+  width: 100%;
+  background-color: rgb(17 24 39); /* bg-gray-900 */
+}
+
 .spinner {
   border: 8px solid rgba(255, 255, 255, 0.3);
   border-top: 8px solid white;
@@ -48,3 +62,4 @@
 .nice-scrollbar:hover::-webkit-scrollbar {
   display: block;
 }
+
