@@ -1,22 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
-import { apiUrl } from './App';
-
-interface User {
-  email: string;
-  role: string;
-  picture?: string;
-}
-
-interface UserContextType {
-  user: User | null;
-  setUser: React.Dispatch<React.SetStateAction<User | null>>;
-}
+import { apiUrl } from './config/constants';
+import { User, UserContextType } from './types/user';
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -26,11 +17,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (error) {
         console.error('Failed to fetch user:', error);
         setUser(null);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchUser();
   }, []);
+
+  if (isLoading) {
+    return null; // Or return a loading spinner
+  }
 
   return (
     <UserContext.Provider value={{ user, setUser }}>

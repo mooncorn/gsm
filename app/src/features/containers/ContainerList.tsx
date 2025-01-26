@@ -1,7 +1,7 @@
 import axios from "axios";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiUrl } from "../../App";
+import { apiUrl } from "../../config/constants";
 import { toast } from "react-toastify";
 import Button from "../../components/ui/Button";
 import { HiOutlineRefresh } from "react-icons/hi";

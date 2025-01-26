@@ -9,16 +9,14 @@ import { ToastContainer } from "react-toastify";
 import Dashboard from "./features/dashboard/Dashboard";
 import { UserProvider, useUser } from "./UserContext";
 
-export const apiUrl = import.meta.env.VITE_API_URL;
-
 const AppContent: React.FC = () => {
   const { user } = useUser();
 
   return (
-    <div>
+    <>
       {!user ? <SignIn /> : <Dashboard />}
-      <ToastContainer />
-    </div>
+      <ToastContainer position="bottom-right" theme="dark" />
+    </>
   );
 };
 

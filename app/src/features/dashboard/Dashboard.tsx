@@ -1,7 +1,5 @@
-import { useState } from "react";
-import { Routes, Route, NavLink, Navigate } from "react-router-dom";
-import { TbBox, TbPhoto, TbUsers } from "react-icons/tb";
-import Header from "../../components/ui/Header";
+import { Routes, Route, Navigate } from "react-router-dom";
+import DashboardLayout from "../../components/layouts/DashboardLayout";
 import ContainerList from "../containers/ContainerList";
 import Container from "../containers/Container";
 import CreateContainer from "../containers/CreateContainer";
@@ -11,76 +9,20 @@ import { useUser } from "../../UserContext";
 
 const Dashboard = () => {
   const { user } = useUser();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  const menuItems = [
-    { path: "containers", label: "Containers", icon: <TbBox className="text-xl" /> },
-    { path: "images", label: "Images", icon: <TbPhoto className="text-xl" /> },
-    { path: "users", label: "Users", icon: <TbUsers className="text-xl" /> },
-  ];
 
   if (!user) return null;
 
   return (
-    <div className="h-screen bg-gray-900 text-white flex flex-col overflow-hidden">
-      <Header className="flex-none" />
-      
-      <div className="flex flex-1 overflow-hidden">
-        {/* Mobile menu button */}
-        <button
-          className="lg:hidden fixed bottom-4 right-4 z-50 bg-gray-700 p-3 rounded-full shadow-lg"
-          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
-
-        {/* Vertical Menu */}
-        <aside className={`
-          fixed lg:relative
-          top-0 left-0
-          w-64 h-full
-          bg-gray-800 border-r border-gray-700
-          transition-transform duration-300 ease-in-out overflow-y-auto nice-scrollbar
-          ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-          z-40
-        `}>
-          <nav className="p-4 space-y-2">
-            {menuItems.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end
-                className={({ isActive }: { isActive: boolean }) => `
-                  flex items-center gap-3 px-4 py-3 rounded-lg
-                  transition-colors duration-200
-                  ${isActive ? 'bg-gray-700 text-white' : 'text-gray-400 hover:bg-gray-700 hover:text-white'}
-                `}
-                onClick={() => setIsMobileMenuOpen(false)}
-              >
-                {item.icon}
-                <span>{item.label}</span>
-              </NavLink>
-            ))}
-          </nav>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 overflow-y-auto nice-scrollbar">
-          <div className="max-w-6xl mx-auto p-4 lg:p-6">
-            <Routes>
-              <Route path="containers" element={<ContainerList />} />
-              <Route path="containers/create" element={<CreateContainer />} />
-              <Route path="containers/:id" element={<Container />} />
-              <Route path="images" element={<DockerImages />} />
-              <Route path="users" element={<Users />} />
-              <Route path="/" element={<Navigate to="containers" replace />} />
-            </Routes>
-          </div>
-        </main>
-      </div>
-    </div>
+    <DashboardLayout>
+      <Routes>
+        <Route path="containers" element={<ContainerList />} />
+        <Route path="containers/create" element={<CreateContainer />} />
+        <Route path="containers/:id" element={<Container />} />
+        <Route path="images" element={<DockerImages />} />
+        <Route path="users" element={<Users />} />
+        <Route path="/" element={<Navigate to="containers" replace />} />
+      </Routes>
+    </DashboardLayout>
   );
 };
 

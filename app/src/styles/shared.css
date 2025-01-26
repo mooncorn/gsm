@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  #root {
+    @apply h-full overflow-y-auto bg-gray-900;
+  }
+
+  html, body {
+    @apply overscroll-none overflow-x-hidden h-full fixed w-full bg-gray-900;
+  }
+}
+
+@layer components {
+  .page-container {
+    @apply min-h-screen bg-gray-900 text-white flex flex-col overflow-hidden;
+  }
+
+  .nav-link {
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg transition-colors duration-200;
+  }
+
+  .nav-link-active {
+    @apply bg-gray-700 text-white;
+  }
+
+  .nav-link-inactive {
+    @apply text-gray-400 hover:bg-gray-700 hover:text-white;
+  }
+
+  .sidebar {
+    @apply w-64 h-full bg-gray-800 border-r border-gray-700 transition-transform duration-300 ease-in-out overflow-y-auto;
+  }
+
+  .mobile-menu-button {
+    @apply lg:hidden fixed bottom-4 right-4 z-50 bg-gray-700 p-3 rounded-full shadow-lg;
+  }
+
+  .content-area {
+    @apply flex-1 overflow-y-auto;
+  }
+
+  .content-container {
+    @apply max-w-6xl mx-auto p-4 lg:p-6;
+  }
+
+  .spinner {
+    @apply border-8 border-gray-700 rounded-full w-[50px] h-[50px] animate-spin;
+    border-top-color: white;
+  }
+}
+
+@layer utilities {
+  .nice-scrollbar {
+    scrollbar-gutter: stable;
+    padding-right: 6px;
+  }
+
+  .nice-scrollbar::-webkit-scrollbar {
+    @apply w-[6px] h-[4px] bg-transparent absolute right-0;
+  }
+
+  .nice-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-white/30 rounded-lg hover:bg-white/50;
+  }
+} 

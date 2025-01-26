@@ -10,8 +10,8 @@ const TabPanel = ({ children, value, index }: TabPanelProps) => {
   return (
     <div
       role="tabpanel"
-      hidden={value !== index}
-      className={`${value === index ? 'block' : 'hidden'} mt-4`}
+      aria-hidden={value !== index}
+      className={value === index ? 'block mt-4' : 'hidden'}
     >
       {children}
     </div>

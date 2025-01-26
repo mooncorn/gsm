@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import Button from "../../components/ui/Button";
 import TabPanel from "../../components/ui/TabPanel";
-import { apiUrl } from "../../App";
+import { apiUrl } from "../../config/constants";
 import { Bounce, toast } from "react-toastify";
 import { IoPower } from "react-icons/io5";
 import { useUser } from "../../UserContext";
@@ -327,7 +327,9 @@ const Container = () => {
                   activeTab === index
                     ? 'border-blue-500 text-blue-500'
                     : 'border-transparent text-gray-500 hover:text-gray-400 hover:border-gray-300'
-                } py-2 px-3 border-b-2 font-medium text-sm whitespace-nowrap`}
+                } py-2 px-3 border-b-2 font-medium text-sm whitespace-nowrap transition-colors duration-200`}
+                aria-selected={activeTab === index}
+                role="tab"
               >
                 {tab}
               </button>

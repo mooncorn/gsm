@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import axios from "axios";
-import { apiUrl } from "../../App";
+import { apiUrl } from "../../config/constants";
 import { toast, Bounce } from "react-toastify";
 import Button from "../../components/ui/Button";
 import { HiOutlineRefresh } from "react-icons/hi";

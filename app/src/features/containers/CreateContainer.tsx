@@ -1,6 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
-import { apiUrl } from "../../App";
+import { apiUrl } from "../../config/constants";
 import { toast, Bounce } from "react-toastify";
 import Button from "../../components/ui/Button";
 import { IoAddCircleOutline } from "react-icons/io5";

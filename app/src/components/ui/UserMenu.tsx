@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { apiUrl } from '../../App';
+import { apiUrl } from '../../config/constants';
 import { useUser } from '../../UserContext';
 import { IoLogOutOutline } from 'react-icons/io5';
 
