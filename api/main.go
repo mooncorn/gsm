@@ -84,6 +84,16 @@ func main() {
 	r.GET("/system/resources", middlewares.CheckUser, middlewares.RequireUser, handlers.GetSystemResources)
 	r.GET("/system/resources/stream", middlewares.CheckUser, middlewares.RequireUser, handlers.StreamSystemResources)
 
+	// File Routes
+	r.GET("/files", middlewares.CheckUser, middlewares.RequireUser, handlers.ListFiles)
+	r.GET("/files/content", middlewares.CheckUser, middlewares.RequireUser, handlers.ReadFile)
+	r.POST("/files/content", middlewares.CheckUser, middlewares.RequireUser, handlers.WriteFile)
+	r.POST("/files/directory", middlewares.CheckUser, middlewares.RequireUser, handlers.CreateDirectory)
+	r.DELETE("/files", middlewares.CheckUser, middlewares.RequireUser, handlers.DeletePath)
+	r.POST("/files/move", middlewares.CheckUser, middlewares.RequireUser, handlers.MovePath)
+	r.GET("/files/download", middlewares.CheckUser, middlewares.RequireUser, handlers.DownloadFile)
+	r.POST("/files/upload", middlewares.CheckUser, middlewares.RequireUser, handlers.UploadFile)
+
 	if strings.ToLower(os.Getenv("APP_ENV")) == "production" {
 		certFile := os.Getenv("SSL_CERT_FILE")
 		keyFile := os.Getenv("SSL_KEY_FILE")

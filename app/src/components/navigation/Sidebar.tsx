@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { TbBox, TbCloud, TbUsers } from 'react-icons/tb';
+import { TbBox, TbCloud, TbUsers, TbFolder } from 'react-icons/tb';
 import { navigationItems } from '../../config/constants';
 import SystemResources from '../ui/SystemResources';
 
@@ -8,6 +8,7 @@ const iconComponents = {
   TbBox,
   TbCloud,
   TbUsers,
+  TbFolder,
 };
 
 interface SidebarProps {
