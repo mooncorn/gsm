@@ -42,7 +42,28 @@ func main() {
 		AllowCredentials: true, // Allow cookies to be sent with the requests
 	}))
 
-	// Docker Routes
+	// Create a separate group for SSE endpoints with modified middleware
+	sseGroup := r.Group("")
+	sseGroup.Use(func(c *gin.Context) {
+		// Set SSE headers before authentication
+		c.Header("Content-Type", "text/event-stream")
+		c.Header("Cache-Control", "no-cache")
+		c.Header("Connection", "keep-alive")
+
+		// Continue with authentication
+		middlewares.CheckUser(c)
+		if c.IsAborted() {
+			return
+		}
+		middlewares.RequireUser(c)
+	})
+
+	// Move SSE endpoints to the SSE group
+	sseGroup.GET("/docker/logs/:id/stream", handlers.LogsStream)
+	sseGroup.GET("/docker/events", handlers.StreamDockerEvents)
+	sseGroup.GET("/system/resources/stream", handlers.StreamSystemResources)
+
+	// Docker Routes (non-SSE)
 	r.POST("/docker/run", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.Run)
 	r.POST("/docker/rm/:id", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.Rm)
 	r.POST("/docker/ps", middlewares.CheckUser, middlewares.RequireUser, handlers.ContainerList)
@@ -53,9 +74,7 @@ func main() {
 	r.POST("/docker/start/:id", middlewares.CheckUser, middlewares.RequireUser, handlers.Start)
 	r.POST("/docker/stop/:id", middlewares.CheckUser, middlewares.RequireUser, handlers.Stop)
 	r.POST("/docker/restart/:id", middlewares.CheckUser, middlewares.RequireUser, handlers.Restart)
-	r.GET("/docker/logs/:id/stream", middlewares.CheckUser, middlewares.RequireUser, handlers.LogsStream)
 	r.GET("/docker/logs/:id", middlewares.CheckUser, middlewares.RequireUser, handlers.Logs)
-	r.GET("/docker/events", middlewares.CheckUser, middlewares.RequireUser, handlers.StreamDockerEvents)
 	r.GET("/docker/connections", handlers.GetContainerConnections)
 	r.POST("/docker/exec/:id", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.ExecInContainer)
 
@@ -82,7 +101,6 @@ func main() {
 
 	// System Routes
 	r.GET("/system/resources", middlewares.CheckUser, middlewares.RequireUser, handlers.GetSystemResources)
-	r.GET("/system/resources/stream", middlewares.CheckUser, middlewares.RequireUser, handlers.StreamSystemResources)
 
 	// File Routes
 	r.GET("/files", middlewares.CheckUser, middlewares.RequireUser, handlers.ListFiles)
