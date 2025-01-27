@@ -80,6 +80,10 @@ func main() {
 		handlers.RemoveAllowedUser(ctx, db)
 	})
 
+	// System Routes
+	r.GET("/system/resources", middlewares.CheckUser, middlewares.RequireUser, handlers.GetSystemResources)
+	r.GET("/system/resources/stream", middlewares.CheckUser, middlewares.RequireUser, handlers.StreamSystemResources)
+
 	if strings.ToLower(os.Getenv("APP_ENV")) == "production" {
 		certFile := os.Getenv("SSL_CERT_FILE")
 		keyFile := os.Getenv("SSL_KEY_FILE")

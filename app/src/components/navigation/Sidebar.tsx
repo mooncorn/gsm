@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { TbBox, TbCloud, TbUsers } from 'react-icons/tb';
 import { navigationItems } from '../../config/constants';
+import SystemResources from '../ui/SystemResources';
 
 const iconComponents = {
   TbBox,
@@ -35,25 +36,28 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           z-40
         `}
       >
-        <nav className="p-4 space-y-2">
-          {navigationItems.map((item) => {
-            const IconComponent = iconComponents[item.icon as keyof typeof iconComponents];
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end
-                className={({ isActive }) =>
-                  `nav-link ${isActive ? 'nav-link-active' : 'nav-link-inactive'}`
-                }
-                onClick={onClose}
-              >
-                <IconComponent className="text-xl" />
-                <span>{item.label}</span>
-              </NavLink>
-            );
-          })}
-        </nav>
+        <div className="flex flex-col h-full">
+          <nav className="p-4 space-y-2">
+            {navigationItems.map((item) => {
+              const IconComponent = iconComponents[item.icon as keyof typeof iconComponents];
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  end
+                  className={({ isActive }) =>
+                    `nav-link ${isActive ? 'nav-link-active' : 'nav-link-inactive'}`
+                  }
+                  onClick={onClose}
+                >
+                  <IconComponent className="text-xl" />
+                  <span>{item.label}</span>
+                </NavLink>
+              );
+            })}
+          </nav>
+          <SystemResources />
+        </div>
       </aside>
     </>
   );
