@@ -7,6 +7,7 @@ import Button from "../../components/ui/Button";
 import { HiOutlineRefresh } from "react-icons/hi";
 import { FaPlus } from "react-icons/fa6";
 import { ContainerListItem } from "../../types/docker";
+import { formatDate } from "../../utils/format";
 
 const ContainerList = () => {
   const [containers, setContainers] = useState<ContainerListItem[]>([]);
@@ -88,30 +89,54 @@ const ContainerList = () => {
     return container.Names[0].replace("/", "");
   };
 
+  const capitalizeFirstLetter = (val: string) => {
+    return String(val).charAt(0).toUpperCase() + String(val).slice(1);
+  };
+
+  const cleanStatus = (status: string) => {
+    // For running containers: "Up 2 hours (healthy)" -> "Up 2 hours"
+    // For stopped containers: "Exited (0) 3 hours ago" -> "Stopped 3 hours ago"
+    if (status.startsWith("Up")) {
+      return status.replace(/\s*\([^)]*\)/, '');
+    } else if (status.startsWith("Exited")) {
+      return status.replace(/Exited\s*\([^)]*\)/, 'Stopped');
+    }
+    return status;
+  };
+
   const renderContainerCards = () => {
     return containers.map((c) => (
       <div
         key={c.Id}
         className="bg-gray-800 rounded-lg p-4 hover:bg-gray-700 transition-colors duration-200"
       >
-        <div className="flex items-center justify-between gap-4 mb-2">
-          <div 
-            className="text-blue-300 hover:underline cursor-pointer text-lg font-medium"
-            onClick={() => navigate(`/containers/${getContainerName(c)}`)}
-          >
-            {getContainerName(c)}
+        <div className="flex flex-col space-y-2">
+          <div className="flex items-center justify-between gap-4">
+            <div 
+              className="text-blue-300 hover:underline cursor-pointer text-lg font-medium"
+              onClick={() => navigate(`/containers/${getContainerName(c)}`)}
+            >
+              {getContainerName(c)}
+            </div>
+            <div className="flex items-center gap-2">
+              
+              <span className={`px-2 py-1 text-xs rounded whitespace-nowrap ${
+                c.State === "running"
+                  ? "bg-green-900 text-green-100"
+                  : "bg-red-900 text-red-100"
+              }`}>
+                {capitalizeFirstLetter(c.State)}
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            <span
-              className={`inline-flex w-2 h-2 rounded-full shrink-0 ${
-                c?.State === "running" ? "bg-green-700" : "bg-red-700"
-              }`}
-            />
-            <span>{c.Status}</span>
+          <div className="flex flex-col space-y-1">
+            <span className="text-sm text-gray-400 break-all">
+              {c.Image}
+            </span>
+            <span className="text-xs text-gray-500">
+              {cleanStatus(c.Status)}
+            </span>
           </div>
-        </div>
-        <div className="text-sm text-gray-400 break-all">
-          {c.Image}
         </div>
       </div>
     ));
@@ -135,7 +160,7 @@ const ContainerList = () => {
       </div>
       
       {/* Mobile and Desktop Views */}
-      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
         {renderContainerCards()}
       </div>
     </div>

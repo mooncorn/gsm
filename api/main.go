@@ -69,6 +69,17 @@ func main() {
 		handlers.GetUser(ctx, db)
 	})
 
+	// User Management Routes
+	r.GET("/users/allowed", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), func(ctx *gin.Context) {
+		handlers.ListAllowedUsers(ctx, db)
+	})
+	r.POST("/users/allowed", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), func(ctx *gin.Context) {
+		handlers.AddAllowedUser(ctx, db)
+	})
+	r.DELETE("/users/allowed/:email", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), func(ctx *gin.Context) {
+		handlers.RemoveAllowedUser(ctx, db)
+	})
+
 	if strings.ToLower(os.Getenv("APP_ENV")) == "production" {
 		certFile := os.Getenv("SSL_CERT_FILE")
 		keyFile := os.Getenv("SSL_KEY_FILE")

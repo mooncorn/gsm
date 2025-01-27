@@ -235,7 +235,7 @@ const DockerImages = () => {
               <Button
                 onClick={() => deleteImage(image.Id)}
                 className="bg-red-800 hover:bg-red-700 shrink-0"
-                icon={<FaTrash />}
+            icon={<FaTrash />}
               />
             )}
           </div>
@@ -245,7 +245,7 @@ const DockerImages = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h2 className="text-2xl font-bold">Images</h2>
         <Button
@@ -274,14 +274,7 @@ const DockerImages = () => {
       {/* Pull Progress */}
       {Object.keys(pullProgress).length > 0 && (
         <div className="space-y-2 bg-gray-800 p-4 rounded-lg">
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="font-semibold">Download Progress</h3>
-            <Button
-              onClick={() => setPullProgress({})}
-              className="text-gray-400 hover:text-white"
-              icon={<span className="text-lg">×</span>}
-            />
-          </div>
+          <h3 className="font-semibold">Download Progress</h3>
           {Object.entries(pullProgress).map(([id, progress]) => (
             <div key={id} className="text-sm">
               <div className="flex justify-between text-gray-300">

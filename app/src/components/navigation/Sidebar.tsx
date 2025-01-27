@@ -1,11 +1,11 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { TbBox, TbPhoto, TbUsers } from 'react-icons/tb';
+import { TbBox, TbCloud, TbUsers } from 'react-icons/tb';
 import { navigationItems } from '../../config/constants';
 
 const iconComponents = {
   TbBox,
-  TbPhoto,
+  TbCloud,
   TbUsers,
 };
 

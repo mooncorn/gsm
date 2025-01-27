@@ -9,6 +9,7 @@ import { useUser } from "../../UserContext";
 import { useParams, useNavigate } from "react-router-dom";
 import { TbArrowLeft } from "react-icons/tb";
 import { ContainerDetails } from "../../types/docker";
+import { formatDate } from "../../utils/format";
 
 const Container = () => {
   const { id } = useParams();
@@ -227,19 +228,6 @@ const Container = () => {
     }
   };
 
-  const formatDateTime = (date: Date | string | undefined) => {
-    if (!date) return "";
-    const parsedDate = typeof date === "string" ? new Date(date) : date;
-    return parsedDate.toLocaleString("en-US", {
-      month: "long", // Full month name
-      day: "numeric", // Day of the month
-      year: "numeric", // Full year
-      hour: "numeric", // Hour
-      minute: "numeric", // Minute
-      hour12: true, // 12-hour format with AM/PM
-    });
-  };
-
   const executeCommand = async () => {
     if (!command.trim()) return;
     
@@ -292,19 +280,25 @@ const Container = () => {
           <div className="flex flex-col space-y-2">
             <div className="flex items-center space-x-2">
               <h2 className="text-lg sm:text-xl font-semibold break-all">{container?.Name || id}</h2>
-              <span
-                className={`px-2 py-1 text-xs rounded whitespace-nowrap ${
+              <span className={`px-2 py-1 text-xs rounded whitespace-nowrap ${
                   container?.State.Running
                     ? "bg-green-900 text-green-100"
                     : "bg-red-900 text-red-100"
-                }`}
-              >
-                {capitalizeFirstLetter(container?.State.Status || "unknown")}
+                }`}>
+                  {capitalizeFirstLetter(container?.State.Status || "unknown")}
+                </span>
+            </div>
+            <div className="flex flex-col space-y-1">
+              <span className="text-sm text-gray-400">
+                {container?.Config.Image}
+              </span>
+              <span className="text-xs text-gray-500">
+                {container?.State.Running 
+                  ? `Started ${formatDate(new Date(container?.State.StartedAt)  )}`
+                  : `Stopped ${container?.State.FinishedAt ? formatDate(new Date(container?.State.FinishedAt)) : ""}`
+                }
               </span>
             </div>
-            <span className="text-sm text-gray-400">
-              {container?.Config.Image}
-            </span>
           </div>
           <Button
             onClick={container?.State.Running ? stop : start}
@@ -397,11 +391,11 @@ const Container = () => {
                 </tr>
                 <tr>
                   <td className="px-2 sm:px-3 py-2 sm:py-3">Started At</td>
-                  <td className="px-2 sm:px-3 py-2 sm:py-3">{formatDateTime(container?.State.StartedAt)}</td>
+                  <td className="px-2 sm:px-3 py-2 sm:py-3">{container?.State.StartedAt ? formatDate(new Date(container?.State.StartedAt)) : ""}</td>
                 </tr>
                 <tr>
                   <td className="px-2 sm:px-3 py-2 sm:py-3">Finished At</td>
-                  <td className="px-2 sm:px-3 py-2 sm:py-3">{formatDateTime(container?.State.FinishedAt)}</td>
+                  <td className="px-2 sm:px-3 py-2 sm:py-3">{container?.State.FinishedAt ? formatDate(new Date(container?.State.FinishedAt)) : ""}</td>
                 </tr>
               </tbody>
             </table>
