@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { apiUrl } from "../../config/constants";
 import { toast, Bounce } from "react-toastify";
@@ -7,6 +7,11 @@ import { IoAddCircleOutline } from "react-icons/io5";
 import { IoRemoveCircleOutline } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
 import { IoArrowBack } from "react-icons/io5";
+
+interface DockerImage {
+  ID: string;
+  RepoTags: string[];
+}
 
 const CreateContainer = () => {
   const navigate = useNavigate();
@@ -17,6 +22,63 @@ const CreateContainer = () => {
     environment: [{ key: "", value: "" }],
     volumes: [{ source: "", destination: "" }],
   });
+  const [images, setImages] = useState<DockerImage[]>([]);
+  const [filteredImages, setFilteredImages] = useState<string[]>([]);
+  const [showImageDropdown, setShowImageDropdown] = useState(false);
+  const imageInputRef = useRef<HTMLDivElement>(null);
+
+  // Fetch available images
+  useEffect(() => {
+    const fetchImages = async () => {
+      try {
+        const response = await axios.get(
+          `${apiUrl}/docker/images`,
+          { withCredentials: true }
+        );
+        setImages(response.data);
+      } catch (err) {
+        console.error("Failed to fetch images", err);
+      }
+    };
+    fetchImages();
+  }, []);
+
+  // Handle clicks outside the dropdown
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (imageInputRef.current && !imageInputRef.current.contains(event.target as Node)) {
+        setShowImageDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Filter images based on input
+  const handleImageSearch = (value: string) => {
+    setFormData(prev => ({ ...prev, image: value }));
+    
+    if (!value.trim()) {
+      setFilteredImages([]);
+      setShowImageDropdown(false);
+      return;
+    }
+
+    const filtered = images.flatMap(img => img.RepoTags)
+      .filter(tag => tag && tag !== "<none>:<none>" && tag.toLowerCase().includes(value.toLowerCase()))
+      .slice(0, 10); // Limit to 10 results
+
+    setFilteredImages(filtered);
+    setShowImageDropdown(true);
+  };
+
+  const selectImage = (image: string) => {
+    setFormData(prev => ({ ...prev, image }));
+    setShowImageDropdown(false);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -149,15 +211,30 @@ const CreateContainer = () => {
             />
           </div>
 
-          <div>
+          <div className="relative" ref={imageInputRef}>
             <label className="block text-sm font-medium mb-1">Image</label>
             <input
               type="text"
               value={formData.image}
-              onChange={e => setFormData(prev => ({ ...prev, image: e.target.value }))}
+              onChange={e => handleImageSearch(e.target.value)}
+              onFocus={() => handleImageSearch(formData.image)}
               className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+              placeholder="Search for an image..."
               required
             />
+            {showImageDropdown && filteredImages.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto">
+                {filteredImages.map((image, index) => (
+                  <div
+                    key={index}
+                    className="px-3 py-2 hover:bg-gray-700 cursor-pointer text-sm"
+                    onClick={() => selectImage(image)}
+                  >
+                    {image}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>
