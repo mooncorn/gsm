@@ -57,7 +57,15 @@ const Container = () => {
           withCredentials: true,
         }
       );
-      setLogs(response.data.split("\n"));
+      // Ensure we always have an array of strings
+      const logData = response.data;
+      if (typeof logData === 'string') {
+        setLogs(logData.split('\n'));
+      } else if (Array.isArray(logData)) {
+        setLogs(logData);
+      } else {
+        setLogs([]);
+      }
     } catch (err) {
       console.error("Failed to fetch logs", err);
       toast.error(`Failed to get logs for ${id}`, {
@@ -84,7 +92,11 @@ const Container = () => {
       );
 
       logEventSourceRef.current.onmessage = (event) => {
-        setLogs((prevLogs) => [...prevLogs, event.data]);
+        setLogs((prevLogs) => {
+          // Ensure we're working with an array
+          const currentLogs = Array.isArray(prevLogs) ? prevLogs : [];
+          return [...currentLogs, event.data];
+        });
       };
 
       logEventSourceRef.current.onerror = (error) => {
