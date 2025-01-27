@@ -7,7 +7,6 @@ import Button from "../../components/ui/Button";
 import { HiOutlineRefresh } from "react-icons/hi";
 import { FaPlus } from "react-icons/fa6";
 import { ContainerListItem } from "../../types/docker";
-import { formatDate } from "../../utils/format";
 
 const ContainerList = () => {
   const [containers, setContainers] = useState<ContainerListItem[]>([]);
