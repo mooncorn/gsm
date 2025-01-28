@@ -159,6 +159,14 @@ func StreamSystemResources(c *gin.Context) {
 
 			response.CPU.Cores = runtime.NumCPU()
 
+			// Get disk information
+			if diskInfo, err := disk.Usage("/"); err == nil {
+				response.Disk.Total = diskInfo.Total
+				response.Disk.Used = diskInfo.Used
+				response.Disk.Free = diskInfo.Free
+				response.Disk.UsedPercent = diskInfo.UsedPercent
+			}
+
 			// Get Docker information
 			if cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation()); err == nil {
 				// Get running containers

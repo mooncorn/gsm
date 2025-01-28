@@ -6,7 +6,7 @@ import Button from "../../components/ui/Button";
 import { IoAddCircleOutline } from "react-icons/io5";
 import { IoRemoveCircleOutline } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";
-import { IoArrowBack } from "react-icons/io5";
+import { TbArrowLeft } from "react-icons/tb";
 
 interface DockerImage {
   ID: string;
@@ -42,6 +42,18 @@ interface SystemResources {
   };
 }
 
+interface ContainerTemplate {
+  name: string;
+  image: string;
+  containerName: string;
+  volumes: string[]; // Just container paths
+  ports: { container: string; host: string; protocol: string }[];
+  environment: { key: string; value: string }[];
+  memory: string;
+  cpu: string;
+  restart: string;
+}
+
 const CreateContainer = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -60,6 +72,10 @@ const CreateContainer = () => {
   const imageInputRef = useRef<HTMLDivElement>(null);
   const [systemResources, setSystemResources] =
     useState<SystemResources | null>(null);
+  const [templates, setTemplates] = useState<ContainerTemplate[]>([]);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
 
   const protocolOptions = ["tcp", "udp"];
   const restartOptions = [
@@ -219,11 +235,9 @@ const CreateContainer = () => {
         restart: formData.restart,
       };
 
-      const response = await axios.post(
-        `${apiUrl}/docker/containers`,
-        requestData,
-        { withCredentials: true }
-      );
+      await axios.post(`${apiUrl}/docker/containers`, requestData, {
+        withCredentials: true,
+      });
 
       toast.success("Container created successfully", {
         position: "bottom-right",
@@ -301,21 +315,273 @@ const CreateContainer = () => {
     setFormData((prev) => ({ ...prev, ports: newPorts }));
   };
 
+  useEffect(() => {
+    // Load templates from localStorage on component mount
+    const savedTemplates = localStorage.getItem("containerTemplates");
+    if (savedTemplates) {
+      setTemplates(JSON.parse(savedTemplates));
+    }
+  }, []);
+
+  const saveTemplate = () => {
+    const newTemplate: ContainerTemplate = {
+      name: templateName,
+      image: formData.image,
+      containerName: formData.containerName,
+      volumes: formData.volumes.map((vol) => vol.path),
+      ports: formData.ports.map((port) => ({
+        container: port.container,
+        host: port.host,
+        protocol: port.protocol,
+      })),
+      environment: formData.environment,
+      memory: formData.memory,
+      cpu: formData.cpu,
+      restart: formData.restart,
+    };
+
+    const updatedTemplates = templates.filter((t) => t.name !== templateName);
+    updatedTemplates.push(newTemplate);
+
+    setTemplates(updatedTemplates);
+    localStorage.setItem(
+      "containerTemplates",
+      JSON.stringify(updatedTemplates)
+    );
+    setShowSaveTemplateModal(false);
+    setTemplateName("");
+
+    toast.success("Template saved successfully", {
+      position: "bottom-right",
+      autoClose: 3000,
+      hideProgressBar: true,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "colored",
+      transition: Bounce,
+    });
+  };
+
+  const updateCurrentTemplate = () => {
+    if (!selectedTemplate) {
+      toast.error("No template selected", {
+        position: "bottom-right",
+        autoClose: 3000,
+        hideProgressBar: true,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "colored",
+        transition: Bounce,
+      });
+      return;
+    }
+
+    const updatedTemplate: ContainerTemplate = {
+      name: selectedTemplate,
+      image: formData.image,
+      containerName: formData.containerName,
+      volumes: formData.volumes.map((vol) => vol.path),
+      ports: formData.ports.map((port) => ({
+        container: port.container,
+        host: port.host,
+        protocol: port.protocol,
+      })),
+      environment: formData.environment,
+      memory: formData.memory,
+      cpu: formData.cpu,
+      restart: formData.restart,
+    };
+
+    const updatedTemplates = templates.map((t) =>
+      t.name === selectedTemplate ? updatedTemplate : t
+    );
+
+    setTemplates(updatedTemplates);
+    localStorage.setItem(
+      "containerTemplates",
+      JSON.stringify(updatedTemplates)
+    );
+
+    toast.success("Template updated successfully", {
+      position: "bottom-right",
+      autoClose: 3000,
+      hideProgressBar: true,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "colored",
+      transition: Bounce,
+    });
+  };
+
+  const deleteTemplate = () => {
+    if (!selectedTemplate) {
+      toast.error("No template selected", {
+        position: "bottom-right",
+        autoClose: 3000,
+        hideProgressBar: true,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "colored",
+        transition: Bounce,
+      });
+      return;
+    }
+
+    const updatedTemplates = templates.filter(
+      (t) => t.name !== selectedTemplate
+    );
+    setTemplates(updatedTemplates);
+    localStorage.setItem(
+      "containerTemplates",
+      JSON.stringify(updatedTemplates)
+    );
+    setSelectedTemplate("");
+
+    toast.success("Template deleted successfully", {
+      position: "bottom-right",
+      autoClose: 3000,
+      hideProgressBar: true,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "colored",
+      transition: Bounce,
+    });
+  };
+
+  const loadTemplate = (template: ContainerTemplate) => {
+    setFormData((prev) => ({
+      ...prev,
+      image: template.image,
+      containerName: template.containerName,
+      volumes: template.volumes.map((path) => ({ path })),
+      ports: template.ports.map((port) => ({
+        container: port.container,
+        host: port.host,
+        protocol: port.protocol,
+      })),
+      environment: template.environment,
+      memory: template.memory,
+      cpu: template.cpu,
+      restart: template.restart,
+    }));
+
+    toast.success("Template loaded successfully", {
+      position: "bottom-right",
+      autoClose: 3000,
+      hideProgressBar: true,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "colored",
+      transition: Bounce,
+    });
+  };
+
+  const clearForm = () => {
+    setFormData({
+      containerName: "",
+      image: "",
+      ports: [{ container: "", host: "", protocol: "tcp" }],
+      environment: [{ key: "", value: "" }],
+      volumes: [{ path: "" }],
+      memory: "",
+      cpu: "",
+      restart: "no",
+    });
+    setSelectedTemplate("");
+
+    toast.success("Form cleared", {
+      position: "bottom-right",
+      autoClose: 3000,
+      hideProgressBar: true,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      progress: undefined,
+      theme: "colored",
+      transition: Bounce,
+    });
+  };
+
   return (
-    <div className="p-4 sm:p-6">
-      <div className="flex items-center gap-4 mb-6">
+    <div className="space-y-4 max-w-2xl mx-auto">
+      <div className="flex items-center gap-4">
         <Button
           onClick={() => navigate("/containers")}
-          icon={<IoArrowBack className="h-5 w-5" />}
-          className="bg-gray-700 hover:bg-gray-600"
-        >
-          Back to Containers
-        </Button>
+          icon={<TbArrowLeft className="text-xl" />}
+        />
         <h2 className="text-2xl font-bold">Create Container</h2>
       </div>
 
-      <div className="max-w-2xl">
+      <div className="">
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-700 pb-4">
+            <h1 className="text-2xl font-bold">Templates</h1>
+            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+              <select
+                className="w-full sm:w-auto min-w-[200px] px-4 py-2 pr-8 bg-gray-800 text-gray-100 rounded border border-gray-700 focus:outline-none focus:border-blue-500 appearance-none"
+                style={{
+                  backgroundImage:
+                    "url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')",
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "right 0.7rem top 50%",
+                  backgroundSize: "0.65rem auto",
+                }}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setSelectedTemplate(value);
+                  const template = templates.find((t) => t.name === value);
+                  if (template) loadTemplate(template);
+                }}
+                value={selectedTemplate}
+              >
+                <option value="">Select Template</option>
+                {templates.map((template) => (
+                  <option key={template.name} value={template.name}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
+              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                <Button
+                  onClick={() => setShowSaveTemplateModal(true)}
+                  className="flex-1 sm:flex-none bg-blue-500 hover:bg-blue-600"
+                >
+                  Save New
+                </Button>
+                <Button
+                  onClick={updateCurrentTemplate}
+                  disabled={!selectedTemplate}
+                  className={`flex-1 sm:flex-none ${
+                    !selectedTemplate ? "opacity-50 cursor-not-allowed" : ""
+                  } bg-green-600 hover:bg-green-700`}
+                >
+                  Update
+                </Button>
+                <Button
+                  onClick={deleteTemplate}
+                  disabled={!selectedTemplate}
+                  className={`flex-1 sm:flex-none ${
+                    !selectedTemplate ? "opacity-50 cursor-not-allowed" : ""
+                  } bg-red-600 hover:bg-red-700`}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium mb-1">
               Container Name
@@ -389,7 +655,14 @@ const CreateContainer = () => {
                 <select
                   value={port.protocol}
                   onChange={(e) => handleProtocolChange(index, e.target.value)}
-                  className="w-full sm:w-auto px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                  className="px-4 py-2 pr-8 bg-gray-800 text-gray-100 rounded border border-gray-700 focus:outline-none focus:border-blue-500 appearance-none"
+                  style={{
+                    backgroundImage:
+                      "url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')",
+                    backgroundRepeat: "no-repeat",
+                    backgroundPosition: "right 0.7rem top 50%",
+                    backgroundSize: "0.65rem auto",
+                  }}
                 >
                   {protocolOptions.map((option) => (
                     <option key={option} value={option}>
@@ -657,6 +930,13 @@ const CreateContainer = () => {
           <div className="flex justify-end gap-2 mt-6">
             <Button
               type="button"
+              onClick={clearForm}
+              className="bg-yellow-600 hover:bg-yellow-700"
+            >
+              Clear
+            </Button>
+            <Button
+              type="button"
               onClick={() => navigate("/containers")}
               className="bg-gray-700 hover:bg-gray-600"
             >
@@ -668,6 +948,40 @@ const CreateContainer = () => {
           </div>
         </form>
       </div>
+
+      {/* Save Template Modal */}
+      {showSaveTemplateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h2 className="text-xl font-bold mb-4">Save as Template</h2>
+            <input
+              type="text"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder="Enter template name"
+              className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <Button
+                onClick={() => {
+                  setShowSaveTemplateModal(false);
+                  setTemplateName("");
+                }}
+                className="bg-gray-700 hover:bg-gray-600"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={saveTemplate}
+                disabled={!templateName.trim()}
+                className="bg-blue-500 hover:bg-blue-600"
+              >
+                Save
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
