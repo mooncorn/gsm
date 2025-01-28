@@ -27,7 +27,7 @@ type FileInfo struct {
 }
 
 func getBaseDir() string {
-	return "/app/shared"
+	return "/gsm/shared"
 }
 
 func sanitizePath(requestPath string) (string, error) {

@@ -13,6 +13,8 @@ interface DockerImage {
   RepoTags: string[];
 }
 
+const BASE_VOLUME_PATH = '/gsm/shared';
+
 const CreateContainer = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -20,7 +22,7 @@ const CreateContainer = () => {
     image: "",
     ports: [{ container: "", host: "" }],
     environment: [{ key: "", value: "" }],
-    volumes: [{ source: "", destination: "" }],
+    volumes: [{ path: "" }],
   });
   const [images, setImages] = useState<DockerImage[]>([]);
   const [filteredImages, setFilteredImages] = useState<string[]>([]);
@@ -84,6 +86,27 @@ const CreateContainer = () => {
     e.preventDefault();
     
     try {
+      // Validate volume paths
+      const invalidVolumes = formData.volumes.filter(vol => {
+        if (!vol.path) return false;
+        return vol.path.includes('..');
+      });
+
+      if (invalidVolumes.length > 0) {
+        toast.error("Invalid volume path. Directory traversal is not allowed.", {
+          position: "bottom-right",
+          autoClose: 3000,
+          hideProgressBar: true,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "colored",
+          transition: Bounce,
+        });
+        return;
+      }
+
       // Format the data for the API
       const config = {
         ContainerName: formData.containerName,
@@ -104,8 +127,15 @@ const CreateContainer = () => {
             return acc;
           }, {} as Record<string, Array<{ HostPort: string }>>),
           Binds: formData.volumes
-            .filter(vol => vol.source && vol.destination)
-            .map(vol => `${vol.source}:${vol.destination}`),
+            .filter(vol => vol.path)
+            .map(vol => {
+              // Normalize the path
+              const normalizedPath = vol.path.replace(/^\/|\/$/g, '');
+              // Create source and destination paths
+              const sourcePath = `${BASE_VOLUME_PATH}/${formData.containerName}/${normalizedPath}`;
+              const destPath = `/${normalizedPath}`;
+              return `${sourcePath}:${destPath}`;
+            }),
         },
       };
 
@@ -160,7 +190,7 @@ const CreateContainer = () => {
   const addVolume = () => {
     setFormData(prev => ({
       ...prev,
-      volumes: [...prev.volumes, { source: "", destination: "" }]
+      volumes: [...prev.volumes, { path: "" }]
     }));
   };
 
@@ -327,26 +357,16 @@ const CreateContainer = () => {
 
           <div>
             <label className="block text-sm font-medium mb-2">Volumes</label>
+            <p className="text-sm text-gray-400 mb-2">Enter paths relative to the shared directory. They will be mounted to /gsm/shared/{formData.containerName}/[path]</p>
             {formData.volumes.map((volume, index) => (
               <div key={index} className="flex flex-col sm:flex-row gap-2 mb-2">
                 <input
                   type="text"
-                  placeholder="Source"
-                  value={volume.source}
+                  placeholder="Path (e.g. data)"
+                  value={volume.path}
                   onChange={e => {
                     const newVolumes = [...formData.volumes];
-                    newVolumes[index].source = e.target.value;
-                    setFormData(prev => ({ ...prev, volumes: newVolumes }));
-                  }}
-                  className="w-full sm:flex-1 px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
-                />
-                <input
-                  type="text"
-                  placeholder="Destination"
-                  value={volume.destination}
-                  onChange={e => {
-                    const newVolumes = [...formData.volumes];
-                    newVolumes[index].destination = e.target.value;
+                    newVolumes[index].path = e.target.value;
                     setFormData(prev => ({ ...prev, volumes: newVolumes }));
                   }}
                   className="w-full sm:flex-1 px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"

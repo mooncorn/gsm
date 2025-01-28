@@ -442,11 +442,12 @@ func StreamDockerEvents(c *gin.Context) {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "docker events channel closed"})
 				return
 			}
-			eventData := map[string]interface{}{
+			eventData := gin.H{
 				"event_type": event.Type,
 				"action":     event.Action,
-				"actor_id":   event.Actor.ID[:12],
+				"actor_id":   truncateID(event.Actor.ID),
 				"attributes": event.Actor.Attributes,
+				"time":       event.Time,
 			}
 			if eventJSON, err := json.Marshal(eventData); err == nil {
 				c.Writer.Write([]byte("data: " + string(eventJSON) + "\n\n"))
@@ -465,6 +466,13 @@ func StreamDockerEvents(c *gin.Context) {
 			return
 		}
 	}
+}
+
+func truncateID(id string) string {
+	if len(id) > 12 {
+		return id[:12]
+	}
+	return id
 }
 
 func GetContainerConnections(c *gin.Context) {
