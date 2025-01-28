@@ -7,6 +7,7 @@ import Button from "../../components/ui/Button";
 import { HiOutlineRefresh } from "react-icons/hi";
 import { FaPlus } from "react-icons/fa6";
 import { ContainerListItem } from "../../types/docker";
+import PageHeader from "../../components/ui/PageHeader";
 
 const ContainerList = () => {
   const [containers, setContainers] = useState<ContainerListItem[]>([]);
@@ -141,22 +142,24 @@ const ContainerList = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap justify-between items-center gap-4">
-        <h2 className="text-2xl font-bold">Containers</h2>
-        <div className="flex gap-2">
-          <Button
-            onClick={() => navigate("/containers/create")}
-            icon={<FaPlus />}
-          />
-          <Button
-            onClick={fetchContainers}
-            icon={
-              <HiOutlineRefresh className={isLoading ? "animate-spin" : ""} />
-            }
-            disabled={isLoading}
-          />
-        </div>
-      </div>
+      <PageHeader
+        title="Containers"
+        actions={
+          <div className="flex gap-2">
+            <Button
+              onClick={() => navigate("/containers/create")}
+              icon={<FaPlus />}
+            />
+            <Button
+              onClick={fetchContainers}
+              icon={
+                <HiOutlineRefresh className={isLoading ? "animate-spin" : ""} />
+              }
+              disabled={isLoading}
+            />
+          </div>
+        }
+      />
 
       {/* Mobile and Desktop Views */}
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">

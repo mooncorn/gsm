@@ -10,6 +10,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { TbArrowLeft } from "react-icons/tb";
 import { ContainerDetails } from "../../types/docker";
 import { formatDate } from "../../utils/format";
+import PageHeader from "../../components/ui/PageHeader";
 
 const Container = () => {
   const { id } = useParams();
@@ -310,48 +311,11 @@ const Container = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
-        <Button
-          onClick={() => navigate("/containers")}
-          icon={<TbArrowLeft className="text-xl" />}
-        />
-        <h1 className="text-2xl font-bold">{id}</h1>
-      </div>
-
-      <div className="flex flex-col h-full w-full">
-        <div className="flex flex-row items-end justify-between mb-4 gap-0">
-          <div className="flex flex-col space-y-2">
-            <div className="flex items-center space-x-2">
-              <h2 className="text-lg sm:text-xl font-semibold break-all">
-                {container?.Name || id}
-              </h2>
-              <span
-                className={`px-2 py-1 text-xs rounded whitespace-nowrap ${
-                  container?.State.Running
-                    ? "bg-green-900 text-green-100"
-                    : "bg-red-900 text-red-100"
-                }`}
-              >
-                {capitalizeFirstLetter(container?.State.Status || "unknown")}
-              </span>
-            </div>
-            <div className="flex flex-col space-y-1">
-              <span className="text-sm text-gray-400">
-                {container?.Config.Image}
-              </span>
-              <span className="text-xs text-gray-500">
-                {container?.State.Running
-                  ? `Started ${formatDate(
-                      new Date(container?.State.StartedAt)
-                    )}`
-                  : `Stopped ${
-                      container?.State.FinishedAt
-                        ? formatDate(new Date(container?.State.FinishedAt))
-                        : ""
-                    }`}
-              </span>
-            </div>
-          </div>
+      <PageHeader
+        title={(container?.Name || id || "Container").toString()}
+        showBackButton
+        backTo="/containers"
+        actions={
           <div className="flex gap-2">
             {!container?.State.Running && (
               <Button
@@ -371,6 +335,36 @@ const Container = () => {
               disabled={isLoading}
               icon={<IoPower className={isLoading ? "opacity-50" : ""} />}
             />
+          </div>
+        }
+      />
+
+      <div className="flex flex-col h-full w-full">
+        <div className="flex flex-col space-y-2">
+          <div className="flex items-center space-x-2">
+            <span
+              className={`px-2 py-1 text-xs rounded whitespace-nowrap ${
+                container?.State.Running
+                  ? "bg-green-900 text-green-100"
+                  : "bg-red-900 text-red-100"
+              }`}
+            >
+              {capitalizeFirstLetter(container?.State.Status || "unknown")}
+            </span>
+          </div>
+          <div className="flex flex-col space-y-1">
+            <span className="text-sm text-gray-400">
+              {container?.Config.Image}
+            </span>
+            <span className="text-xs text-gray-500">
+              {container?.State.Running
+                ? `Started ${formatDate(new Date(container?.State.StartedAt))}`
+                : `Stopped ${
+                    container?.State.FinishedAt
+                      ? formatDate(new Date(container?.State.FinishedAt))
+                      : ""
+                  }`}
+            </span>
           </div>
         </div>
 

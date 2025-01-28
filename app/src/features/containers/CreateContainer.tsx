@@ -18,6 +18,9 @@ import { PortsSection } from "./components/PortsSection";
 import { EnvironmentSection } from "./components/EnvironmentSection";
 import { VolumesSection } from "./components/VolumesSection";
 import { ResourceLimitsSection } from "./components/ResourceLimitsSection";
+import PageHeader from "../../components/ui/PageHeader";
+import TemplateControls from "../../components/ui/TemplateControls";
+import SearchDropdown from "../../components/ui/SearchDropdown";
 
 const CreateContainer = () => {
   const navigate = useNavigate();
@@ -261,56 +264,22 @@ const CreateContainer = () => {
 
   return (
     <div className="space-y-4 max-w-2xl mx-auto">
-      <div className="flex items-center gap-4">
-        <Button
-          onClick={() => navigate("/containers")}
-          icon={<TbArrowLeft className="text-xl" />}
-        />
-        <h2 className="text-2xl font-bold">Create Container</h2>
-      </div>
+      <PageHeader
+        title="Create Container"
+        showBackButton
+        backTo="/containers"
+      />
 
       <div className="">
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-gray-700 pb-4">
-            <h1 className="text-2xl font-bold">Templates</h1>
-            <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-              <Select
-                className="w-full sm:w-auto min-w-[200px]"
-                options={[
-                  { value: "", label: "Select Template" },
-                  ...templates.map((t) => ({ value: t.name, label: t.name })),
-                ]}
-                value={selectedTemplate}
-                onChange={handleTemplateSelect}
-              />
-              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                <Button
-                  onClick={() => setShowSaveTemplateModal(true)}
-                  className="flex-1 sm:flex-none bg-blue-500 hover:bg-blue-600"
-                >
-                  Save New
-                </Button>
-                <Button
-                  onClick={handleUpdateTemplate}
-                  disabled={!selectedTemplate}
-                  className={`flex-1 sm:flex-none ${
-                    !selectedTemplate ? "opacity-50 cursor-not-allowed" : ""
-                  } bg-green-600 hover:bg-green-700`}
-                >
-                  Update
-                </Button>
-                <Button
-                  onClick={deleteTemplate}
-                  disabled={!selectedTemplate}
-                  className={`flex-1 sm:flex-none ${
-                    !selectedTemplate ? "opacity-50 cursor-not-allowed" : ""
-                  } bg-red-600 hover:bg-red-700`}
-                >
-                  Delete
-                </Button>
-              </div>
-            </div>
-          </div>
+          <TemplateControls
+            templates={templates}
+            selectedTemplate={selectedTemplate}
+            onTemplateSelect={handleTemplateSelect}
+            onSaveNew={() => setShowSaveTemplateModal(true)}
+            onUpdate={handleUpdateTemplate}
+            onDelete={deleteTemplate}
+          />
 
           <FormInput
             label="Container Name"
@@ -324,29 +293,17 @@ const CreateContainer = () => {
             required
           />
 
-          <div className="relative" ref={imageInputRef}>
-            <FormInput
-              label="Image"
-              value={formData.image}
-              onChange={(e) => handleImageSearch(e.target.value)}
-              onFocus={() => handleImageSearch(formData.image)}
-              placeholder="Search for an image..."
-              required
-            />
-            {showImageDropdown && filteredImages.length > 0 && (
-              <div className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto">
-                {filteredImages.map((image, index) => (
-                  <div
-                    key={index}
-                    className="px-3 py-2 hover:bg-gray-700 cursor-pointer text-sm"
-                    onClick={() => selectImage(image)}
-                  >
-                    {image}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <SearchDropdown
+            label="Image"
+            value={formData.image}
+            onChange={handleImageSearch}
+            onSelect={selectImage}
+            options={filteredImages}
+            showDropdown={showImageDropdown}
+            setShowDropdown={setShowImageDropdown}
+            placeholder="Search for an image..."
+            required
+          />
 
           <PortsSection
             ports={formData.ports}

@@ -8,6 +8,8 @@ import { FaTrash } from "react-icons/fa";
 import { useUser } from "../../UserContext";
 import { DockerImage, PullProgress } from "../../types/docker";
 import { formatBytes, formatDate } from "../../utils/format";
+import PageHeader from "../../components/ui/PageHeader";
+import FormInput from "../../components/ui/FormInput";
 
 const DockerImages = () => {
   const [images, setImages] = useState<DockerImage[]>([]);
@@ -248,25 +250,27 @@ const DockerImages = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h2 className="text-2xl font-bold">Images</h2>
-        <Button
-          onClick={fetchImages}
-          icon={
-            <HiOutlineRefresh className={isLoading ? "animate-spin" : ""} />
-          }
-          disabled={isLoading}
-        />
-      </div>
+      <PageHeader
+        title="Images"
+        actions={
+          <Button
+            onClick={fetchImages}
+            icon={
+              <HiOutlineRefresh className={isLoading ? "animate-spin" : ""} />
+            }
+            disabled={isLoading}
+          />
+        }
+      />
 
       {user?.role === "admin" && (
         <form onSubmit={pullImage} className="flex flex-col sm:flex-row gap-2">
-          <input
+          <FormInput
             type="text"
             value={imageName}
             onChange={(e) => setImageName(e.target.value)}
             placeholder="Image name (e.g. nginx:latest)"
-            className="flex-1 px-4 py-2 bg-gray-800 text-gray-100 rounded border border-gray-700 focus:outline-none focus:border-blue-500"
+            className="flex-1"
             disabled={isLoading}
           />
           <Button type="submit" disabled={isLoading || !imageName}>
