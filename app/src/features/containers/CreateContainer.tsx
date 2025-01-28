@@ -20,7 +20,7 @@ const CreateContainer = () => {
   const [formData, setFormData] = useState({
     containerName: "",
     image: "",
-    ports: [{ container: "", host: "" }],
+    ports: [{ container: "", host: "", protocol: "tcp" }],
     environment: [{ key: "", value: "" }],
     volumes: [{ path: "" }],
   });
@@ -28,6 +28,8 @@ const CreateContainer = () => {
   const [filteredImages, setFilteredImages] = useState<string[]>([]);
   const [showImageDropdown, setShowImageDropdown] = useState(false);
   const imageInputRef = useRef<HTMLDivElement>(null);
+
+  const protocolOptions = ["tcp", "udp", "both"];
 
   // Fetch available images
   useEffect(() => {
@@ -120,9 +122,12 @@ const CreateContainer = () => {
         HostConfig: {
           PortBindings: formData.ports.reduce((acc, port) => {
             if (port.container && port.host) {
-              acc[`${port.container}/tcp`] = [
-                { HostPort: port.host }
-              ];
+              const protocols = port.protocol === "both" ? ["tcp", "udp"] : [port.protocol];
+              protocols.forEach(proto => {
+                acc[`${port.container}/${proto}`] = [
+                  { HostPort: port.host }
+                ];
+              });
             }
             return acc;
           }, {} as Record<string, Array<{ HostPort: string }>>),
@@ -176,7 +181,7 @@ const CreateContainer = () => {
   const addPort = () => {
     setFormData(prev => ({
       ...prev,
-      ports: [...prev.ports, { container: "", host: "" }]
+      ports: [...prev.ports, { container: "", host: "", protocol: "tcp" }]
     }));
   };
 
@@ -213,6 +218,12 @@ const CreateContainer = () => {
       ...prev,
       volumes: prev.volumes.filter((_, i) => i !== index)
     }));
+  };
+
+  const handleProtocolChange = (index: number, protocol: string) => {
+    const newPorts = [...formData.ports];
+    newPorts[index].protocol = protocol;
+    setFormData(prev => ({ ...prev, ports: newPorts }));
   };
 
   return (
@@ -293,6 +304,15 @@ const CreateContainer = () => {
                   }}
                   className="w-full sm:flex-1 px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
                 />
+                <select
+                  value={port.protocol}
+                  onChange={e => handleProtocolChange(index, e.target.value)}
+                  className="w-full sm:w-auto px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none"
+                >
+                  {protocolOptions.map(option => (
+                    <option key={option} value={option}>{option.toUpperCase()}</option>
+                  ))}
+                </select>
                 <Button
                   type="button"
                   onClick={() => removePort(index)}
