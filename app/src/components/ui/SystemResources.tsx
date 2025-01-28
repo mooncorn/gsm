@@ -1,13 +1,58 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { TbCpu, TbDeviceDesktop, TbDatabase } from 'react-icons/tb';
-import { apiUrl } from '../../config/constants';
+import React, { useEffect, useState, useRef } from "react";
+import {
+  TbCpu,
+  TbDeviceDesktop,
+  TbDatabase,
+  TbContainer,
+} from "react-icons/tb";
+import { apiUrl } from "../../config/constants";
 
 interface SystemResourcesData {
-  cpu: number;
-  memory: number;
-  disk: number;
-  gpuUsed: boolean;
+  memory: {
+    total: number;
+    used: number;
+    free: number;
+    used_percent: number;
+  };
+  cpu: {
+    cores: number;
+    used: number;
+    model_name: string;
+    frequencies: number[];
+    temperature: number;
+    architecture: string;
+  };
+  docker: {
+    running_containers: number;
+    total_containers: number;
+    total_images: number;
+  };
+  disk: {
+    total: number;
+    used: number;
+    free: number;
+    used_percent: number;
+  };
+  system: {
+    os: string;
+    platform: string;
+    kernel_version: string;
+    uptime: number;
+    last_update: string;
+  };
 }
+
+const formatMemory = (bytes: number | undefined): string => {
+  if (!bytes) return "0";
+  const mb = Math.round(bytes / (1024 * 1024));
+  return mb.toLocaleString();
+};
+
+const formatDisk = (bytes: number | undefined): string => {
+  if (!bytes) return "0";
+  const gb = Math.round(bytes / (1024 * 1024 * 1024));
+  return gb.toLocaleString();
+};
 
 const SystemResources: React.FC = () => {
   const [resources, setResources] = useState<SystemResourcesData | null>(null);
@@ -20,7 +65,7 @@ const SystemResources: React.FC = () => {
         const eventSourceInit: EventSourceInit = {
           withCredentials: true,
         };
-        
+
         eventSourceRef.current = new EventSource(
           `${apiUrl}/system/resources/stream`,
           eventSourceInit
@@ -33,8 +78,8 @@ const SystemResources: React.FC = () => {
         };
 
         eventSourceRef.current.onerror = (error) => {
-          console.error('System resources EventSource error:', error);
-          setError('Failed to load system resources');
+          console.error("System resources EventSource error:", error);
+          setError("Failed to load system resources");
           disconnectResourceStream();
           // Try to reconnect after a delay
           setTimeout(connectToResourceStream, 5000);
@@ -57,12 +102,8 @@ const SystemResources: React.FC = () => {
     };
   }, []);
 
-  if (error) {
-    return null; // Don't show anything if there's an error
-  }
-
-  if (!resources) {
-    return null; // Don't show anything while loading
+  if (error || !resources) {
+    return null;
   }
 
   return (
@@ -72,27 +113,64 @@ const SystemResources: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TbCpu className="text-blue-400" />
-            <span className="text-sm">CPU</span>
+            <span className="text-sm">
+              CPU ({resources.cpu?.cores || 0} cores)
+            </span>
           </div>
-          <span className="text-sm">{resources.cpu.toFixed(1)}%</span>
+          <span className="text-sm">{resources.cpu?.used.toFixed(1)}%</span>
         </div>
+
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TbDeviceDesktop className="text-green-400" />
             <span className="text-sm">Memory</span>
           </div>
-          <span className="text-sm">{resources.memory.toFixed(1)}%</span>
+          <div className="text-right">
+            <span className="text-sm">
+              {typeof resources.memory?.used_percent === "number"
+                ? resources.memory.used_percent.toFixed(1)
+                : "0"}
+              %
+            </span>
+            <div className="text-xs text-gray-400">
+              {formatMemory(resources.memory?.used)} /{" "}
+              {formatMemory(resources.memory?.total)} MB
+            </div>
+          </div>
         </div>
+
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <TbDatabase className="text-purple-400" />
             <span className="text-sm">Disk</span>
           </div>
-          <span className="text-sm">{resources.disk.toFixed(1)}%</span>
+          <div className="text-right">
+            <span className="text-sm">
+              {typeof resources.disk?.used_percent === "number"
+                ? resources.disk.used_percent.toFixed(1)
+                : "0"}
+              %
+            </span>
+            <div className="text-xs text-gray-400">
+              {formatDisk(resources.disk?.used)} /{" "}
+              {formatDisk(resources.disk?.total)} GB
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TbContainer className="text-yellow-400" />
+            <span className="text-sm">Containers</span>
+          </div>
+          <span className="text-sm">
+            {resources.docker?.running_containers || 0} /{" "}
+            {resources.docker?.total_containers || 0}
+          </span>
         </div>
       </div>
     </div>
   );
 };
 
-export default SystemResources; 
+export default SystemResources;

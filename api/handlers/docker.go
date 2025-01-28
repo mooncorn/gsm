@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/docker/go-connections/nat"
 	"github.com/gin-gonic/gin"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
@@ -62,6 +64,91 @@ type EventsRequest struct {
 
 type ExecRequest struct {
 	Command string `json:"command"`
+}
+
+type ContainerCreateRequest struct {
+	Name    string        `json:"name" binding:"required"`
+	Image   string        `json:"image" binding:"required"`
+	Ports   []PortMapping `json:"ports"`
+	Env     []string      `json:"env"`
+	Memory  int64         `json:"memory" binding:"gte=0"`
+	CPU     float64       `json:"cpu" binding:"gte=0"`
+	Command []string      `json:"command"`
+	Restart string        `json:"restart" binding:"oneof=no on-failure always unless-stopped"`
+	Volumes []string      `json:"volumes"`
+}
+
+type PortMapping struct {
+	HostPort      uint16 `json:"hostPort" binding:"required,gt=0"`
+	ContainerPort uint16 `json:"containerPort" binding:"required,gt=0"`
+	Protocol      string `json:"protocol" binding:"oneof=tcp udp"`
+}
+
+func (r *ContainerCreateRequest) ToDockerConfig() (*container.Config, *container.HostConfig, error) {
+	// Create port bindings and exposed ports
+	portBindings := make(map[nat.Port][]nat.PortBinding)
+	exposedPorts := make(map[nat.Port]struct{})
+
+	for _, port := range r.Ports {
+		// Format: port/protocol
+		containerPort := nat.Port(fmt.Sprintf("%d/%s", port.ContainerPort, strings.ToLower(port.Protocol)))
+
+		// Add to exposed ports
+		exposedPorts[containerPort] = struct{}{}
+
+		// Add to port bindings
+		portBindings[containerPort] = []nat.PortBinding{
+			{
+				HostPort: fmt.Sprintf("%d", port.HostPort),
+				// Bind to all interfaces
+				HostIP: "",
+			},
+		}
+	}
+
+	// Create volume bindings
+	var volumes map[string]struct{}
+	var binds []string
+	if len(r.Volumes) > 0 {
+		volumes = make(map[string]struct{})
+		for _, volume := range r.Volumes {
+			// Create the host path as /gsm/shared/<container_name>/<path>
+			hostPath := filepath.Join("/gsm/shared", r.Name, volume)
+			// Use the original path as container path
+			containerPath := filepath.Join("/", volume)
+
+			volumes[containerPath] = struct{}{}
+			binds = append(binds, fmt.Sprintf("%s:%s", hostPath, containerPath))
+		}
+	}
+
+	// Create container config
+	config := &container.Config{
+		Image:        r.Image,
+		Cmd:          r.Command,
+		Env:          r.Env,
+		ExposedPorts: exposedPorts,
+		Volumes:      volumes,
+	}
+
+	// Create host config
+	hostConfig := &container.HostConfig{
+		PortBindings: portBindings,
+		Binds:        binds,
+		Resources: container.Resources{
+			Memory:   r.Memory,
+			NanoCPUs: int64(r.CPU * 1e9), // Convert CPU cores to nano CPUs
+		},
+	}
+
+	// Set restart policy
+	if r.Restart != "" {
+		hostConfig.RestartPolicy = container.RestartPolicy{
+			Name: container.RestartPolicyMode(r.Restart),
+		}
+	}
+
+	return config, hostConfig, nil
 }
 
 func ContainerList(c *gin.Context) {
@@ -120,10 +207,17 @@ func ImageList(c *gin.Context) {
 	c.JSON(200, images)
 }
 
-func Run(c *gin.Context) {
-	var req RunRequest
+func ContainerCreate(c *gin.Context) {
+	var req ContainerCreateRequest
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": "invalid request"})
+		return
+	}
+
+	// Convert to Docker types with validation
+	config, hostConfig, err := req.ToDockerConfig()
+	if err != nil {
+		c.JSON(400, gin.H{"error": fmt.Sprintf("invalid configuration: %v", err)})
 		return
 	}
 
@@ -133,13 +227,16 @@ func Run(c *gin.Context) {
 		return
 	}
 
-	createResponse, err := docker.ContainerCreate(c, &req.Config, &req.HostConfig, &req.NetworkConfig, req.platform, req.ContainerName)
+	createResponse, err := docker.ContainerCreate(c, config, hostConfig, nil, nil, req.Name)
 	if err != nil {
 		c.JSON(400, gin.H{"error": fmt.Sprintf("failed to create container: %v", err)})
 		return
 	}
 
-	c.JSON(200, createResponse)
+	c.JSON(http.StatusCreated, gin.H{
+		"id":       createResponse.ID,
+		"warnings": createResponse.Warnings,
+	})
 }
 
 func Rm(c *gin.Context) {

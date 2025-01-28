@@ -64,7 +64,8 @@ func main() {
 	sseGroup.GET("/system/resources/stream", handlers.StreamSystemResources)
 
 	// Docker Routes (non-SSE)
-	r.POST("/docker/run", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.Run)
+	r.POST("/docker/containers", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.ContainerCreate)
+
 	r.POST("/docker/rm/:id", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.Rm)
 	r.POST("/docker/ps", middlewares.CheckUser, middlewares.RequireUser, handlers.ContainerList)
 	r.GET("/docker/inspect/:id", middlewares.CheckUser, middlewares.RequireUser, handlers.InspectContainer)

@@ -1,107 +1,188 @@
 package handlers
 
 import (
-	"encoding/json"
-	"net/http"
+	"fmt"
+	"runtime"
 	"time"
 
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/client"
 	"github.com/gin-gonic/gin"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
-type SystemResources struct {
-	CPU     float64 `json:"cpu"`
-	Memory  float64 `json:"memory"`
-	Disk    float64 `json:"disk"`
-	GPUUsed bool    `json:"gpuUsed"`
+type SystemResourcesResponse struct {
+	Memory struct {
+		Total       uint64  `json:"total"`        // Total memory in bytes
+		Used        uint64  `json:"used"`         // Used memory in bytes
+		Free        uint64  `json:"free"`         // Free memory in bytes
+		UsedPercent float64 `json:"used_percent"` // Percentage of memory used
+	} `json:"memory"`
+	CPU struct {
+		Cores        int       `json:"cores"`        // Number of CPU cores
+		Used         float64   `json:"used"`         // CPU usage percentage
+		ModelName    string    `json:"model_name"`   // CPU model name
+		Frequencies  []float64 `json:"frequencies"`  // CPU frequencies per core in MHz
+		Temperature  float64   `json:"temperature"`  // CPU temperature if available
+		Architecture string    `json:"architecture"` // CPU architecture
+	} `json:"cpu"`
+	Docker struct {
+		RunningContainers int `json:"running_containers"` // Number of running containers
+		TotalContainers   int `json:"total_containers"`   // Total number of containers
+		TotalImages       int `json:"total_images"`       // Total number of images
+	} `json:"docker"`
+	Disk struct {
+		Total       uint64  `json:"total"`        // Total disk space in bytes
+		Used        uint64  `json:"used"`         // Used disk space in bytes
+		Free        uint64  `json:"free"`         // Free disk space in bytes
+		UsedPercent float64 `json:"used_percent"` // Percentage of disk used
+	} `json:"disk"`
+	System struct {
+		OS            string    `json:"os"`             // Operating system
+		Platform      string    `json:"platform"`       // Platform (e.g., linux, windows)
+		KernelVersion string    `json:"kernel_version"` // Kernel version
+		Uptime        float64   `json:"uptime"`         // System uptime in seconds
+		LastUpdate    time.Time `json:"last_update"`    // Timestamp of this update
+	} `json:"system"`
 }
 
 func GetSystemResources(c *gin.Context) {
-	// Get CPU usage
-	cpuPercent, err := cpu.Percent(0, false)
+	var response SystemResourcesResponse
+
+	// Get memory information
+	memInfo, err := mem.VirtualMemory()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get CPU usage"})
+		c.JSON(500, gin.H{"error": fmt.Sprintf("failed to get memory info: %v", err)})
 		return
 	}
 
-	// Get memory usage
-	memory, err := mem.VirtualMemory()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get memory usage"})
-		return
+	response.Memory.Total = memInfo.Total
+	response.Memory.Used = memInfo.Used
+	response.Memory.Free = memInfo.Free
+	response.Memory.UsedPercent = memInfo.UsedPercent
+
+	// Get CPU information
+	cpuInfo, err := cpu.Info()
+	if err == nil && len(cpuInfo) > 0 {
+		response.CPU.ModelName = cpuInfo[0].ModelName
+		response.CPU.Architecture = runtime.GOARCH
 	}
 
-	// Get disk usage
-	disk, err := disk.Usage("/")
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get disk usage"})
-		return
+	cpuPercent, err := cpu.Percent(time.Second, false)
+	if err == nil && len(cpuPercent) > 0 {
+		response.CPU.Used = cpuPercent[0]
 	}
 
-	resources := SystemResources{
-		CPU:     cpuPercent[0],
-		Memory:  memory.UsedPercent,
-		Disk:    disk.UsedPercent,
-		GPUUsed: false, // We can implement GPU detection later if needed
+	frequencies, err := cpu.Info()
+	if err == nil {
+		freqs := make([]float64, len(frequencies))
+		for i, f := range frequencies {
+			freqs[i] = f.Mhz
+		}
+		response.CPU.Frequencies = freqs
 	}
 
-	c.JSON(http.StatusOK, resources)
+	response.CPU.Cores = runtime.NumCPU()
+
+	// Get disk information
+	diskInfo, err := disk.Usage("/")
+	if err == nil {
+		response.Disk.Total = diskInfo.Total
+		response.Disk.Used = diskInfo.Used
+		response.Disk.Free = diskInfo.Free
+		response.Disk.UsedPercent = diskInfo.UsedPercent
+	}
+
+	// Get Docker information
+	if cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation()); err == nil {
+		defer cli.Close()
+
+		// Get running containers
+		if containers, err := cli.ContainerList(c, container.ListOptions{All: false}); err == nil {
+			response.Docker.RunningContainers = len(containers)
+		}
+
+		// Get all containers (including stopped)
+		if containers, err := cli.ContainerList(c, container.ListOptions{All: true}); err == nil {
+			response.Docker.TotalContainers = len(containers)
+		}
+
+		// Get all images
+		if images, err := cli.ImageList(c, image.ListOptions{}); err == nil {
+			response.Docker.TotalImages = len(images)
+		}
+	}
+
+	// Get system information
+	response.System.OS = runtime.GOOS
+	response.System.Platform = runtime.GOOS
+	response.System.LastUpdate = time.Now()
+
+	c.JSON(200, response)
 }
 
 func StreamSystemResources(c *gin.Context) {
-	// Set headers for SSE
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
-	c.Header("Transfer-Encoding", "chunked")
 
-	// Create a channel to signal client disconnection
-	clientGone := c.Writer.CloseNotify()
-
-	// Send system resources every second
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-clientGone:
+		case <-c.Request.Context().Done():
 			return
 		case <-ticker.C:
-			// Get CPU usage
-			cpuPercent, err := cpu.Percent(0, false)
-			if err != nil {
-				return
+			var response SystemResourcesResponse
+
+			// Get memory information
+			if memInfo, err := mem.VirtualMemory(); err == nil {
+				response.Memory.Total = memInfo.Total
+				response.Memory.Used = memInfo.Used
+				response.Memory.Free = memInfo.Free
+				response.Memory.UsedPercent = memInfo.UsedPercent
 			}
 
-			// Get memory usage
-			memory, err := mem.VirtualMemory()
-			if err != nil {
-				return
+			// Get CPU information
+			if cpuInfo, err := cpu.Info(); err == nil && len(cpuInfo) > 0 {
+				response.CPU.ModelName = cpuInfo[0].ModelName
+				response.CPU.Architecture = runtime.GOARCH
 			}
 
-			// Get disk usage
-			disk, err := disk.Usage("/")
-			if err != nil {
-				return
+			if cpuPercent, err := cpu.Percent(0, false); err == nil && len(cpuPercent) > 0 {
+				response.CPU.Used = cpuPercent[0]
 			}
 
-			resources := SystemResources{
-				CPU:     cpuPercent[0],
-				Memory:  memory.UsedPercent,
-				Disk:    disk.UsedPercent,
-				GPUUsed: false,
+			response.CPU.Cores = runtime.NumCPU()
+
+			// Get Docker information
+			if cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation()); err == nil {
+				// Get running containers
+				if containers, err := cli.ContainerList(c, container.ListOptions{All: false}); err == nil {
+					response.Docker.RunningContainers = len(containers)
+				}
+
+				// Get all containers (including stopped)
+				if containers, err := cli.ContainerList(c, container.ListOptions{All: true}); err == nil {
+					response.Docker.TotalContainers = len(containers)
+				}
+
+				// Get all images
+				if images, err := cli.ImageList(c, image.ListOptions{}); err == nil {
+					response.Docker.TotalImages = len(images)
+				}
 			}
 
-			// Marshal the data
-			data, err := json.Marshal(resources)
-			if err != nil {
-				return
-			}
+			// Get system information
+			response.System.OS = runtime.GOOS
+			response.System.Platform = runtime.GOOS
+			response.System.LastUpdate = time.Now()
 
-			// Write the event
-			c.SSEvent("message", string(data))
+			c.SSEvent("message", response)
 			c.Writer.Flush()
 		}
 	}
