@@ -27,7 +27,6 @@ const ContainerList = () => {
         }
       );
       setContainers(response.data);
-      
     } catch (err: any) {
       toast(err.response?.data?.error || "Failed to fetch containers", {
         type: "error",
@@ -96,9 +95,9 @@ const ContainerList = () => {
     // For running containers: "Up 2 hours (healthy)" -> "Up 2 hours"
     // For stopped containers: "Exited (0) 3 hours ago" -> "Stopped 3 hours ago"
     if (status.startsWith("Up")) {
-      return status.replace(/\s*\([^)]*\)/, '');
+      return status.replace(/\s*\([^)]*\)/, "");
     } else if (status.startsWith("Exited")) {
-      return status.replace(/Exited\s*\([^)]*\)/, 'Stopped');
+      return status.replace(/Exited\s*\([^)]*\)/, "Stopped");
     }
     return status;
   };
@@ -111,27 +110,26 @@ const ContainerList = () => {
       >
         <div className="flex flex-col space-y-2">
           <div className="flex items-center justify-between gap-4">
-            <div 
+            <div
               className="text-blue-300 hover:underline cursor-pointer text-lg font-medium"
               onClick={() => navigate(`/containers/${getContainerName(c)}`)}
             >
               {getContainerName(c)}
             </div>
             <div className="flex items-center gap-2">
-              
-              <span className={`px-2 py-1 text-xs rounded whitespace-nowrap ${
-                c.State === "running"
-                  ? "bg-green-900 text-green-100"
-                  : "bg-red-900 text-red-100"
-              }`}>
+              <span
+                className={`px-2 py-1 text-xs rounded whitespace-nowrap ${
+                  c.State === "running"
+                    ? "bg-green-900 text-green-100"
+                    : "bg-red-900 text-red-100"
+                }`}
+              >
                 {capitalizeFirstLetter(c.State)}
               </span>
             </div>
           </div>
           <div className="flex flex-col space-y-1">
-            <span className="text-sm text-gray-400 break-all">
-              {c.Image}
-            </span>
+            <span className="text-sm text-gray-400 break-all">{c.Image}</span>
             <span className="text-xs text-gray-500">
               {cleanStatus(c.Status)}
             </span>
@@ -146,18 +144,20 @@ const ContainerList = () => {
       <div className="flex flex-wrap justify-between items-center gap-4">
         <h2 className="text-2xl font-bold">Containers</h2>
         <div className="flex gap-2">
-          <Button 
-            onClick={() => navigate("/containers/create")} 
+          <Button
+            onClick={() => navigate("/containers/create")}
             icon={<FaPlus />}
           />
           <Button
             onClick={fetchContainers}
-            icon={<HiOutlineRefresh className={isLoading ? "animate-spin" : ""} />}
+            icon={
+              <HiOutlineRefresh className={isLoading ? "animate-spin" : ""} />
+            }
             disabled={isLoading}
           />
         </div>
       </div>
-      
+
       {/* Mobile and Desktop Views */}
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
         {renderContainerCards()}

@@ -153,7 +153,8 @@ func StreamSystemResources(c *gin.Context) {
 				response.CPU.Architecture = runtime.GOARCH
 			}
 
-			if cpuPercent, err := cpu.Percent(0, false); err == nil && len(cpuPercent) > 0 {
+			// Calculate CPU percentage with a 1-second interval
+			if cpuPercent, err := cpu.Percent(time.Second, false); err == nil && len(cpuPercent) > 0 {
 				response.CPU.Used = cpuPercent[0]
 			}
 

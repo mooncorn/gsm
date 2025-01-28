@@ -16,7 +16,9 @@ const SignIn: React.FC = () => {
 
       <div className="flex-grow flex items-center">
         <div className="relative p-6 rounded-lg">
-          <h1 className="flex gap-2 text-4xl md:text-6xl font-bold mb-2">GSHUB</h1>
+          <h1 className="flex gap-2 text-4xl md:text-6xl font-bold mb-2">
+            GSHUB
+          </h1>
           <p className="text-lg md:text-xl text-gray-300 mb-6">
             You have to sign in to access the dashboard.
           </p>

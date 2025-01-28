@@ -13,7 +13,9 @@ const DockerImages = () => {
   const [images, setImages] = useState<DockerImage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [imageName, setImageName] = useState("");
-  const [pullProgress, setPullProgress] = useState<{ [key: string]: PullProgress }>({});
+  const [pullProgress, setPullProgress] = useState<{
+    [key: string]: PullProgress;
+  }>({});
   const { user } = useUser();
   const eventSourceRef = useRef<EventSource | null>(null);
 
@@ -73,7 +75,7 @@ const DockerImages = () => {
 
         try {
           const data = JSON.parse(event.data);
-          
+
           // Check for error messages
           if (data.error) {
             eventSource.close();
@@ -113,13 +115,13 @@ const DockerImages = () => {
           if (data.progressDetail?.current !== undefined) {
             setPullProgress((prev) => {
               const newProgress = { ...prev };
-              
+
               // If download is complete, remove it
               if (data.progressDetail.current === data.progressDetail.total) {
                 delete newProgress[data.id || "status"];
                 return Object.keys(newProgress).length > 0 ? newProgress : {};
               }
-              
+
               // Otherwise update the progress
               return {
                 ...newProgress,
@@ -235,7 +237,7 @@ const DockerImages = () => {
               <Button
                 onClick={() => deleteImage(image.Id)}
                 className="bg-red-800 hover:bg-red-700 shrink-0"
-            icon={<FaTrash />}
+                icon={<FaTrash />}
               />
             )}
           </div>
@@ -250,7 +252,9 @@ const DockerImages = () => {
         <h2 className="text-2xl font-bold">Images</h2>
         <Button
           onClick={fetchImages}
-          icon={<HiOutlineRefresh className={isLoading ? "animate-spin" : ""} />}
+          icon={
+            <HiOutlineRefresh className={isLoading ? "animate-spin" : ""} />
+          }
           disabled={isLoading}
         />
       </div>
@@ -280,9 +284,11 @@ const DockerImages = () => {
               <div className="flex justify-between text-gray-300">
                 <span>{id}</span>
                 <span>
-                  {progress.progressDetail ? 
-                    `${formatBytes(progress.progressDetail.current)}/${formatBytes(progress.progressDetail.total)}` : 
-                    ''}
+                  {progress.progressDetail
+                    ? `${formatBytes(
+                        progress.progressDetail.current
+                      )}/${formatBytes(progress.progressDetail.total)}`
+                    : ""}
                 </span>
               </div>
               {progress.progressDetail && (
@@ -290,7 +296,11 @@ const DockerImages = () => {
                   <div
                     className="bg-blue-500 h-1.5 rounded-full"
                     style={{
-                      width: `${(progress.progressDetail.current / progress.progressDetail.total) * 100}%`,
+                      width: `${
+                        (progress.progressDetail.current /
+                          progress.progressDetail.total) *
+                        100
+                      }%`,
                     }}
                   />
                 </div>

@@ -1,54 +1,55 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-import { apiUrl } from '../../config/constants';
-import { FileInfo } from '../../types/files';
-import { toast, Bounce } from 'react-toastify';
-import Button from '../../components/ui/Button';
-import { 
-  TbFile, 
-  TbFolder, 
-  TbDownload, 
-  TbTrash, 
+import React, { useState, useEffect, useCallback } from "react";
+import axios from "axios";
+import { apiUrl } from "../../config/constants";
+import { FileInfo } from "../../types/files";
+import { toast, Bounce } from "react-toastify";
+import Button from "../../components/ui/Button";
+import {
+  TbFile,
+  TbFolder,
+  TbDownload,
+  TbTrash,
   TbEdit,
   TbFolderPlus,
   TbUpload,
   TbArrowLeft,
-} from 'react-icons/tb';
-import { formatBytes, formatDate } from '../../utils/format';
+} from "react-icons/tb";
+import { formatBytes, formatDate } from "../../utils/format";
 import { IoArrowBack } from "react-icons/io5";
 
 // This interface is used in the type assertion for directory upload
-interface DirectoryInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'webkitdirectory' | 'directory'> {
+interface DirectoryInputProps
+  extends Omit<
+    React.InputHTMLAttributes<HTMLInputElement>,
+    "webkitdirectory" | "directory"
+  > {
   webkitdirectory?: string;
   directory?: string;
 }
 
 const Files: React.FC = () => {
   const [files, setFiles] = useState<FileInfo[]>([]);
-  const [currentPath, setCurrentPath] = useState('');
+  const [currentPath, setCurrentPath] = useState("");
   const [selectedFile, setSelectedFile] = useState<FileInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderName, setNewFolderName] = useState("");
   const [showFileEditor, setShowFileEditor] = useState(false);
-  const [fileContent, setFileContent] = useState('');
+  const [fileContent, setFileContent] = useState("");
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<FileInfo | null>(null);
 
   const fetchFiles = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get(
-        `${apiUrl}/files`,
-        {
-          params: { path: currentPath },
-          withCredentials: true,
-        }
-      );
+      const response = await axios.get(`${apiUrl}/files`, {
+        params: { path: currentPath },
+        withCredentials: true,
+      });
       setFiles(response.data || []);
     } catch (err: any) {
       setFiles([]);
-      toast.error(err.response?.data?.error || 'Failed to fetch files', {
+      toast.error(err.response?.data?.error || "Failed to fetch files", {
         position: "bottom-right",
         autoClose: 3000,
         hideProgressBar: true,
@@ -73,13 +74,10 @@ const Files: React.FC = () => {
       setCurrentPath(file.path);
     } else if (file.isReadable) {
       try {
-        const response = await axios.get(
-          `${apiUrl}/files/content`,
-          {
-            params: { path: file.path },
-            withCredentials: true,
-          }
-        );
+        const response = await axios.get(`${apiUrl}/files/content`, {
+          params: { path: file.path },
+          withCredentials: true,
+        });
         setFileContent(response.data.content);
         setSelectedFile(file);
         setShowFileEditor(true);
@@ -98,7 +96,7 @@ const Files: React.FC = () => {
             transition: Bounce,
           });
         } else {
-          toast.error(err.response?.data?.error || 'Failed to read file', {
+          toast.error(err.response?.data?.error || "Failed to read file", {
             position: "bottom-right",
             autoClose: 3000,
             hideProgressBar: true,
@@ -115,7 +113,7 @@ const Files: React.FC = () => {
   };
 
   const handleNavigateUp = () => {
-    const parentPath = currentPath.split('/').slice(0, -1).join('/');
+    const parentPath = currentPath.split("/").slice(0, -1).join("/");
     setCurrentPath(parentPath);
   };
 
@@ -126,14 +124,14 @@ const Files: React.FC = () => {
       await axios.post(
         `${apiUrl}/files/directory`,
         {
-          path: `${currentPath}/${newFolderName}`.replace(/^\/+/, ''),
+          path: `${currentPath}/${newFolderName}`.replace(/^\/+/, ""),
         },
         { withCredentials: true }
       );
       setShowNewFolderDialog(false);
-      setNewFolderName('');
+      setNewFolderName("");
       fetchFiles();
-      toast.success('Folder created successfully', {
+      toast.success("Folder created successfully", {
         position: "bottom-right",
         autoClose: 3000,
         hideProgressBar: true,
@@ -145,7 +143,7 @@ const Files: React.FC = () => {
         transition: Bounce,
       });
     } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Failed to create folder', {
+      toast.error(err.response?.data?.error || "Failed to create folder", {
         position: "bottom-right",
         autoClose: 3000,
         hideProgressBar: true,
@@ -173,7 +171,7 @@ const Files: React.FC = () => {
       );
       setShowFileEditor(false);
       fetchFiles();
-      toast.success('File saved successfully', {
+      toast.success("File saved successfully", {
         position: "bottom-right",
         autoClose: 3000,
         hideProgressBar: true,
@@ -185,7 +183,7 @@ const Files: React.FC = () => {
         transition: Bounce,
       });
     } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Failed to save file', {
+      toast.error(err.response?.data?.error || "Failed to save file", {
         position: "bottom-right",
         autoClose: 3000,
         hideProgressBar: true,
@@ -208,15 +206,12 @@ const Files: React.FC = () => {
     if (!fileToDelete) return;
 
     try {
-      await axios.delete(
-        `${apiUrl}/files`,
-        {
-          params: { path: fileToDelete.path },
-          withCredentials: true,
-        }
-      );
+      await axios.delete(`${apiUrl}/files`, {
+        params: { path: fileToDelete.path },
+        withCredentials: true,
+      });
       fetchFiles();
-      toast.success('Deleted successfully', {
+      toast.success("Deleted successfully", {
         position: "bottom-right",
         autoClose: 3000,
         hideProgressBar: true,
@@ -228,7 +223,7 @@ const Files: React.FC = () => {
         transition: Bounce,
       });
     } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Failed to delete', {
+      toast.error(err.response?.data?.error || "Failed to delete", {
         position: "bottom-right",
         autoClose: 3000,
         hideProgressBar: true,
@@ -247,9 +242,11 @@ const Files: React.FC = () => {
 
   const handleDownload = async (file: FileInfo) => {
     try {
-      window.open(`${apiUrl}/files/download?path=${encodeURIComponent(file.path)}`);
+      window.open(
+        `${apiUrl}/files/download?path=${encodeURIComponent(file.path)}`
+      );
     } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Failed to download', {
+      toast.error(err.response?.data?.error || "Failed to download", {
         position: "bottom-right",
         autoClose: 3000,
         hideProgressBar: true,
@@ -269,61 +266,67 @@ const Files: React.FC = () => {
 
     // Convert FileList to array for easier handling
     const fileArray = Array.from(files);
-    
+
     for (const file of fileArray) {
       const formData = new FormData();
-      formData.append('file', file);
-      
+      formData.append("file", file);
+
       // Get the relative path from the webkitRelativePath
       let relativePath = file.webkitRelativePath || file.name;
       // If it's a direct file upload (not in a folder), just use the filename
       if (!file.webkitRelativePath) {
         relativePath = file.name;
       }
-      
+
       // Combine current path with relative path
-      const fullPath = `${currentPath}/${relativePath}`.replace(/^\/+/, '');
-      formData.append('path', fullPath);
+      const fullPath = `${currentPath}/${relativePath}`.replace(/^\/+/, "");
+      formData.append("path", fullPath);
 
       try {
-        await axios.post(
-          `${apiUrl}/files/upload`,
-          formData,
+        await axios.post(`${apiUrl}/files/upload`, formData, {
+          withCredentials: true,
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+      } catch (err: any) {
+        toast.error(
+          `Failed to upload ${relativePath}: ${
+            err.response?.data?.error || "Unknown error"
+          }`,
           {
-            withCredentials: true,
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
+            position: "bottom-right",
+            autoClose: 3000,
+            hideProgressBar: true,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            progress: undefined,
+            theme: "colored",
+            transition: Bounce,
           }
         );
-      } catch (err: any) {
-        toast.error(`Failed to upload ${relativePath}: ${err.response?.data?.error || 'Unknown error'}`, {
-          position: "bottom-right",
-          autoClose: 3000,
-          hideProgressBar: true,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "colored",
-          transition: Bounce,
-        });
         return; // Stop on first error
       }
     }
-    
+
     fetchFiles();
-    toast.success(fileArray.length > 1 ? 'Files uploaded successfully' : 'File uploaded successfully', {
-      position: "bottom-right",
-      autoClose: 3000,
-      hideProgressBar: true,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-      theme: "colored",
-      transition: Bounce,
-    });
+    toast.success(
+      fileArray.length > 1
+        ? "Files uploaded successfully"
+        : "File uploaded successfully",
+      {
+        position: "bottom-right",
+        autoClose: 3000,
+        hideProgressBar: true,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        progress: undefined,
+        theme: "colored",
+        transition: Bounce,
+      }
+    );
   };
 
   if (showFileEditor && selectedFile) {
@@ -334,7 +337,7 @@ const Files: React.FC = () => {
             onClick={() => {
               setShowFileEditor(false);
               setSelectedFile(null);
-              setFileContent('');
+              setFileContent("");
             }}
             icon={<IoArrowBack className="h-5 w-5" />}
             className="bg-gray-700 hover:bg-gray-600"
@@ -357,7 +360,7 @@ const Files: React.FC = () => {
                 onClick={() => {
                   setShowFileEditor(false);
                   setSelectedFile(null);
-                  setFileContent('');
+                  setFileContent("");
                 }}
                 className="bg-gray-700 hover:bg-gray-600"
               >
@@ -388,9 +391,9 @@ const Files: React.FC = () => {
             />
           )}
           <h1 className="text-2xl font-bold">Files</h1>
-          <span className="text-gray-400">{currentPath || '/'}</span>
+          <span className="text-gray-400">{currentPath || "/"}</span>
         </div>
-        
+
         <div className="flex gap-2">
           <Button
             onClick={() => setShowNewFolderDialog(true)}
@@ -412,18 +415,21 @@ const Files: React.FC = () => {
               id="folder-upload"
               className="hidden"
               onChange={handleUpload}
-              {...{ webkitdirectory: "", directory: "" } as DirectoryInputProps}
+              {...({
+                webkitdirectory: "",
+                directory: "",
+              } as DirectoryInputProps)}
               multiple
             />
             <Button
-              onClick={() => document.getElementById('file-upload')?.click()}
+              onClick={() => document.getElementById("file-upload")?.click()}
               icon={<TbUpload className="h-5 w-5" />}
               className="bg-blue-500 hover:bg-blue-600"
             >
               Upload File
             </Button>
             <Button
-              onClick={() => document.getElementById('folder-upload')?.click()}
+              onClick={() => document.getElementById("folder-upload")?.click()}
               icon={<TbFolderPlus className="h-5 w-5" />}
               className="bg-blue-500 hover:bg-blue-600"
             >
@@ -439,11 +445,21 @@ const Files: React.FC = () => {
           <table className="min-w-full">
             <thead className="bg-gray-900">
               <tr>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Name</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Size</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Modified</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">Permissions</th>
-                <th className="px-4 py-3 text-right text-sm font-semibold">Actions</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">
+                  Name
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">
+                  Size
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">
+                  Modified
+                </th>
+                <th className="px-4 py-3 text-left text-sm font-semibold">
+                  Permissions
+                </th>
+                <th className="px-4 py-3 text-right text-sm font-semibold">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-700">
@@ -479,7 +495,7 @@ const Files: React.FC = () => {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      {file.isDir ? '--' : formatBytes(file.size)}
+                      {file.isDir ? "--" : formatBytes(file.size)}
                     </td>
                     <td className="px-4 py-3 text-sm">
                       {formatDate(new Date(file.modTime))}
@@ -537,7 +553,7 @@ const Files: React.FC = () => {
               <Button
                 onClick={() => {
                   setShowNewFolderDialog(false);
-                  setNewFolderName('');
+                  setNewFolderName("");
                 }}
                 className="bg-gray-700 hover:bg-gray-600"
               >
@@ -560,7 +576,7 @@ const Files: React.FC = () => {
           <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
             <h2 className="text-xl font-bold mb-4">Confirm Delete</h2>
             <p className="mb-6">
-              Are you sure you want to delete{' '}
+              Are you sure you want to delete{" "}
               <span className="font-semibold">{fileToDelete.name}</span>?
               {fileToDelete.isDir && (
                 <span className="block mt-2 text-red-400">
@@ -592,4 +608,4 @@ const Files: React.FC = () => {
   );
 };
 
-export default Files; 
+export default Files;
