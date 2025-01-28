@@ -26,17 +26,13 @@ type FileInfo struct {
 	IsExecutable bool      `json:"isExecutable"`
 }
 
-func getHomeDir() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "/"
-	}
-	return home
+func getBaseDir() string {
+	return "/app/shared"
 }
 
 func sanitizePath(requestPath string) (string, error) {
-	// Get the home directory as the base
-	baseDir := getHomeDir()
+	// Use the shared directory as the base
+	baseDir := getBaseDir()
 
 	// Join the base directory with the requested path
 	fullPath := filepath.Join(baseDir, requestPath)
@@ -44,9 +40,9 @@ func sanitizePath(requestPath string) (string, error) {
 	// Clean the path to remove any ".." or "." components
 	fullPath = filepath.Clean(fullPath)
 
-	// Check if the resulting path is within the home directory
+	// Check if the resulting path is within the shared directory
 	if !strings.HasPrefix(fullPath, baseDir) {
-		return "", fmt.Errorf("access denied: path outside home directory")
+		return "", fmt.Errorf("access denied: path outside shared directory")
 	}
 
 	return fullPath, nil
