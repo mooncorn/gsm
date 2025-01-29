@@ -1,5 +1,8 @@
-import { User } from "../types/user";
-import { FileInfo, FileContentResponse } from "../types/files";
+export interface User {
+  email: string;
+  role: string;
+  picture?: string;
+}
 
 // Auth & User Types
 export interface AuthResponse {
@@ -16,12 +19,20 @@ export interface AllowedUser extends User {
 export interface CreateContainerRequest {
   name: string;
   image: string;
-  ports?: Port[];
-  volumes?: string[];
-  env?: string[];
-  memory?: number;
-  cpu?: number;
-  restart?: string;
+  ports: Array<{
+    hostPort: number;
+    containerPort: number;
+    protocol: string;
+  }>;
+  env: string[];
+  memory: number;
+  cpu: number;
+  restart: string;
+  volumes: string[];
+  tty: boolean;
+  attachStdin: boolean;
+  attachStdout: boolean;
+  attachStderr: boolean;
 }
 
 export interface Port {
@@ -70,6 +81,9 @@ export interface ContainerDetails {
   mounts: Mount[];
   config: {
     tty: boolean;
+    attachStdin: boolean;
+    attachStdout: boolean;
+    attachStderr: boolean;
     env: string[];
     image: string;
   };
@@ -89,7 +103,7 @@ export interface Mount {
   readOnly: boolean;
 }
 
-export interface DockerImage {
+export interface Image {
   Id: string;
   ParentId: string;
   RepoTags: string[];
@@ -112,5 +126,51 @@ export interface PullProgress {
   id?: string;
 }
 
-// Re-export types from other modules for centralized access
-export type { User, FileInfo, FileContentResponse };
+export interface ContainerConfig {
+  image: string;
+  env: string[];
+  tty: boolean;
+  attachStdin: boolean;
+  attachStdout: boolean;
+  attachStderr: boolean;
+  exposedPorts: { [key: string]: object };
+  volumes: { [key: string]: object };
+}
+
+export interface FileInfo {
+  name: string;
+  path: string;
+  size: number;
+  isDir: boolean;
+  modTime: string;
+  permissions: string;
+  isReadable: boolean;
+  isWritable: boolean;
+  isExecutable: boolean;
+}
+
+export interface FileOperationResponse {
+  message: string;
+}
+
+export interface FileContentResponse {
+  content: string;
+}
+
+export interface MoveFileRequest {
+  source: string;
+  destination: string;
+}
+
+export interface CreateDirectoryRequest {
+  path: string;
+}
+
+export interface WriteFileRequest {
+  path: string;
+  content: string;
+}
+
+export interface ContainerExecResponse {
+  output: string;
+}

@@ -33,7 +33,7 @@ export const filesApi = {
     await apiClient.post("/files/directory", { path });
   },
 
-  upload: async (path: string, file: File) => {
+  upload: async (path: string = "/", file: File) => {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("path", path);

@@ -7,10 +7,6 @@ export const authApi = {
     return response.data;
   },
 
-  signOut: async () => {
-    await apiClient.post("/auth/signout");
-  },
-
   getAllowedUsers: async () => {
     const response = await apiClient.get<AllowedUser[]>("/users/allowed");
     return response.data;

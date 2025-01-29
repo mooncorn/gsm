@@ -1,25 +1,29 @@
 import React from "react";
 import Button from "./Button";
 
-interface ModalProps {
+export interface ModalProps {
   title: string;
   isOpen: boolean;
   onClose: () => void;
   onConfirm?: () => void;
   confirmText?: string;
-  children: React.ReactNode;
   confirmDisabled?: boolean;
+  confirmStyle?: "primary" | "danger";
+  isLoading?: boolean;
+  children: React.ReactNode;
 }
 
-const Modal: React.FC<ModalProps> = ({
+export default function Modal({
   title,
   isOpen,
   onClose,
   onConfirm,
   confirmText = "Confirm",
-  children,
   confirmDisabled = false,
-}) => {
+  confirmStyle = "primary",
+  isLoading = false,
+  children,
+}: ModalProps) {
   if (!isOpen) return null;
 
   return (
@@ -27,15 +31,24 @@ const Modal: React.FC<ModalProps> = ({
       <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
         <h2 className="text-xl font-bold mb-4">{title}</h2>
         {children}
-        <div className="flex justify-end gap-2">
-          <Button onClick={onClose} className="bg-gray-700 hover:bg-gray-600">
+        <div className="flex justify-end gap-2 mt-4">
+          <Button
+            onClick={onClose}
+            className="bg-gray-700 hover:bg-gray-600"
+            disabled={isLoading}
+          >
             Cancel
           </Button>
           {onConfirm && (
             <Button
               onClick={onConfirm}
               disabled={confirmDisabled}
-              className="bg-blue-500 hover:bg-blue-600"
+              isLoading={isLoading}
+              className={
+                confirmStyle === "danger"
+                  ? "bg-red-500 hover:bg-red-600 disabled:bg-red-800"
+                  : "bg-blue-500 hover:bg-blue-600 disabled:bg-blue-800"
+              }
             >
               {confirmText}
             </Button>
@@ -44,6 +57,4 @@ const Modal: React.FC<ModalProps> = ({
       </div>
     </div>
   );
-};
-
-export default Modal;
+}

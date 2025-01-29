@@ -2,7 +2,7 @@ import React, { useRef, useEffect } from "react";
 import FormInput from "./FormInput";
 
 interface SearchDropdownProps {
-  label: string;
+  label?: string;
   value: string;
   onChange: (value: string) => void;
   onSelect: (value: string) => void;
@@ -11,6 +11,7 @@ interface SearchDropdownProps {
   setShowDropdown: (show: boolean) => void;
   placeholder?: string;
   required?: boolean;
+  isLoading?: boolean;
 }
 
 const SearchDropdown: React.FC<SearchDropdownProps> = ({
@@ -23,6 +24,7 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
   setShowDropdown,
   placeholder,
   required,
+  isLoading = false,
 }) => {
   const inputRef = useRef<HTMLDivElement>(null);
 
@@ -54,15 +56,24 @@ const SearchDropdown: React.FC<SearchDropdownProps> = ({
       />
       {showDropdown && options.length > 0 && (
         <div className="absolute z-10 w-full mt-1 bg-gray-800 border border-gray-700 rounded-md shadow-lg max-h-60 overflow-auto">
-          {options.map((option, index) => (
-            <div
-              key={index}
-              className="px-3 py-2 hover:bg-gray-700 cursor-pointer text-sm"
-              onClick={() => onSelect(option)}
-            >
-              {option}
-            </div>
-          ))}
+          <ul className="py-1">
+            {isLoading ? (
+              <li className="px-4 py-2 text-sm text-gray-400">Loading...</li>
+            ) : (
+              options.map((option) => (
+                <li
+                  key={option}
+                  className="px-4 py-2 text-sm hover:bg-gray-700 cursor-pointer"
+                  onClick={() => {
+                    onSelect(option);
+                    setShowDropdown(false);
+                  }}
+                >
+                  {option}
+                </li>
+              ))
+            )}
+          </ul>
         </div>
       )}
     </div>

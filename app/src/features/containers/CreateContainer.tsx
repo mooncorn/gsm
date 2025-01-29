@@ -1,263 +1,67 @@
-import { useState, useEffect, useRef } from "react";
-import { toast, Bounce } from "react-toastify";
-import Button from "../../components/ui/Button";
-import Modal from "../../components/ui/Modal";
-import FormInput from "../../components/ui/FormInput";
-import Select from "../../components/ui/Select";
-import FormSection from "../../components/ui/FormSection";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  useContainerTemplates,
-  ContainerFormData,
-} from "../../hooks/useContainerTemplates";
-import { SystemResources } from "./types";
-import { PortsSection } from "./components/PortsSection";
-import { EnvironmentSection } from "./components/EnvironmentSection";
-import { VolumesSection } from "./components/VolumesSection";
-import { ResourceLimitsSection } from "./components/ResourceLimitsSection";
+import { ContainerTemplate } from "../../types/docker";
+import { useContainerTemplates } from "../../hooks/useContainerTemplates";
+import { useImageSearch } from "./hooks/useImageSearch";
+import { useContainerFormValidation } from "./hooks/useContainerFormValidation";
+import { useContainerFormSubmission } from "./hooks/useContainerFormSubmission";
+import { useSystemResources } from "../../hooks/useSystemResources";
+
+// UI Components
+import Button from "../../components/ui/Button";
 import PageHeader from "../../components/ui/PageHeader";
 import TemplateControls from "../../components/ui/TemplateControls";
-import SearchDropdown from "../../components/ui/SearchDropdown";
-import {
-  api,
-  apiClient,
-  CreateContainerRequest,
-  DockerImage,
-} from "../../api-client";
+import SaveTemplateModal from "./components/SaveTemplateModal";
+import { ContainerForm } from "./components/ContainerForm";
+import { ResourceLimitsSection } from "./components/ResourceLimitsSection";
 
-const CreateContainer = () => {
+const INITIAL_FORM_STATE: ContainerTemplate = {
+  containerName: "",
+  image: "",
+  ports: [{ containerPort: "", hostPort: "", protocol: "tcp" }],
+  environment: [{ key: "", value: "" }],
+  volumes: [""],
+  memory: "",
+  cpu: "",
+  restart: "no",
+  tty: false,
+  attachStdin: false,
+  attachStdout: false,
+  attachStderr: false,
+};
+
+export default function CreateContainer() {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState<ContainerFormData>({
-    containerName: "",
-    image: "",
-    ports: [{ containerPort: "", hostPort: "", protocol: "tcp" }],
-    environment: [{ key: "", value: "" }],
-    volumes: [{ path: "" }],
-    memory: "",
-    cpu: "",
-    restart: "no",
-  });
-
+  const { validateForm } = useContainerFormValidation();
+  const { submitForm, isLoading: isCreating } = useContainerFormSubmission();
+  const { resources } = useSystemResources();
   const {
-    templates,
     selectedTemplate,
     setSelectedTemplate,
     saveTemplate,
     updateTemplate,
     deleteTemplate,
     loadTemplate,
+    getTemplateNames,
   } = useContainerTemplates();
 
-  const [images, setImages] = useState<DockerImage[]>([]);
-  const [filteredImages, setFilteredImages] = useState<string[]>([]);
-  const [showImageDropdown, setShowImageDropdown] = useState(false);
-  const imageInputRef = useRef<HTMLDivElement>(null);
-  const [systemResources, setSystemResources] =
-    useState<SystemResources | null>(null);
+  const {
+    filteredImages,
+    showImageDropdown,
+    setShowImageDropdown,
+    handleImageSearch,
+    isLoading: isLoadingImages,
+  } = useImageSearch();
+
+  const [formData, setFormData] =
+    useState<ContainerTemplate>(INITIAL_FORM_STATE);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [templateName, setTemplateName] = useState("");
-  const restartOptions = [
-    { value: "no", label: "No" },
-    { value: "on-failure", label: "On Failure" },
-    { value: "always", label: "Always" },
-    { value: "unless-stopped", label: "Unless Stopped" },
-  ];
-
-  // Fetch available images
-  useEffect(() => {
-    const fetchImages = async () => {
-      try {
-        const data = await api.docker.listImages();
-        setImages(data);
-      } catch (err) {
-        console.error("Failed to fetch images", err);
-      }
-    };
-    fetchImages();
-  }, []);
-
-  // Listen to system resources SSE
-  useEffect(() => {
-    const eventSource = new EventSource(
-      `${apiClient.defaults.baseURL}/system/resources/stream`,
-      {
-        withCredentials: true,
-      }
-    );
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        setSystemResources(data);
-      } catch (err) {
-        console.error("Failed to parse system resources", err);
-      }
-    };
-
-    eventSource.onerror = (err) => {
-      console.error("SSE error:", err);
-      eventSource.close();
-    };
-
-    return () => {
-      eventSource.close();
-    };
-  }, []);
-
-  // Handle clicks outside the dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        imageInputRef.current &&
-        !imageInputRef.current.contains(event.target as Node)
-      ) {
-        setShowImageDropdown(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  // Filter images based on input
-  const handleImageSearch = (value: string) => {
-    setFormData((prev) => ({ ...prev, image: value }));
-
-    if (!value.trim()) {
-      setFilteredImages([]);
-      setShowImageDropdown(false);
-      return;
-    }
-
-    const filtered = images
-      .flatMap((img) => img.RepoTags)
-      .filter(
-        (tag) =>
-          tag &&
-          tag !== "<none>:<none>" &&
-          tag.toLowerCase().includes(value.toLowerCase())
-      )
-      .slice(0, 10);
-
-    setFilteredImages(filtered);
-    setShowImageDropdown(true);
-  };
-
-  const selectImage = (image: string) => {
-    setFormData((prev) => ({ ...prev, image }));
-    setShowImageDropdown(false);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    try {
-      // Validate volume paths
-      const invalidVolumes = formData.volumes.filter((vol) => {
-        if (!vol.path) return false;
-        return vol.path.includes("..");
-      });
-
-      if (invalidVolumes.length > 0) {
-        toast.error(
-          "Invalid volume path. Directory traversal is not allowed.",
-          {
-            position: "bottom-right",
-            autoClose: 3000,
-            hideProgressBar: true,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-            progress: undefined,
-            theme: "colored",
-            transition: Bounce,
-          }
-        );
-        return;
-      }
-
-      // Validate memory and CPU
-      const memoryMB = parseFloat(formData.memory);
-      const cpuCores = parseFloat(formData.cpu);
-
-      if (formData.memory && (isNaN(memoryMB) || memoryMB < 0)) {
-        toast.error("Memory must be a positive number", { theme: "colored" });
-        return;
-      }
-
-      if (formData.cpu && (isNaN(cpuCores) || cpuCores < 0)) {
-        toast.error("CPU must be a positive number", { theme: "colored" });
-        return;
-      }
-
-      // Format the data according to the new ContainerCreateRequest structure
-      const requestData: CreateContainerRequest = {
-        name: formData.containerName,
-        image: formData.image,
-        ports: formData.ports
-          .filter((port) => port.containerPort && port.hostPort)
-          .map((port) => ({
-            hostPort: parseInt(port.hostPort),
-            containerPort: parseInt(port.containerPort),
-            protocol: port.protocol,
-          })),
-        env: formData.environment
-          .filter((env) => env.key && env.value)
-          .map((env) => `${env.key}=${env.value}`),
-        volumes: formData.volumes
-          .filter((vol) => vol.path)
-          .map((vol) => vol.path),
-        memory: formData.memory ? parseInt(formData.memory) : 0,
-        cpu: formData.cpu ? parseFloat(formData.cpu) : 0,
-        restart: formData.restart,
-      };
-
-      await api.docker.createContainer(requestData);
-
-      toast.success("Container created successfully", {
-        position: "bottom-right",
-        autoClose: 3000,
-        hideProgressBar: true,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "colored",
-        transition: Bounce,
-      });
-
-      navigate("/containers");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to create container", {
-        position: "bottom-right",
-        autoClose: 3000,
-        hideProgressBar: true,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "colored",
-        transition: Bounce,
-      });
-    }
-  };
 
   const handleTemplateSelect = (value: string) => {
     setSelectedTemplate(value);
     if (!value) {
-      // Clear form when no template is selected
-      setFormData({
-        containerName: "",
-        image: "",
-        ports: [{ containerPort: "", hostPort: "", protocol: "tcp" }],
-        environment: [{ key: "", value: "" }],
-        volumes: [{ path: "" }],
-        memory: "",
-        cpu: "",
-        restart: "no",
-      });
+      setFormData(INITIAL_FORM_STATE);
       return;
     }
     const loadedData = loadTemplate(value);
@@ -272,8 +76,14 @@ const CreateContainer = () => {
     setTemplateName("");
   };
 
-  const handleUpdateTemplate = () => {
-    updateTemplate(formData);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validateForm(formData)) {
+      return;
+    }
+
+    await submitForm(formData);
   };
 
   return (
@@ -284,80 +94,41 @@ const CreateContainer = () => {
         backTo="/containers"
       />
 
-      <div className="">
+      <div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <TemplateControls
-            templates={templates}
+            templates={getTemplateNames()}
             selectedTemplate={selectedTemplate}
             onTemplateSelect={handleTemplateSelect}
             onSaveNew={() => setShowSaveTemplateModal(true)}
-            onUpdate={handleUpdateTemplate}
+            onUpdate={() => updateTemplate(formData)}
             onDelete={deleteTemplate}
           />
 
-          <FormInput
-            label="Container Name"
-            value={formData.containerName}
-            onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                containerName: e.target.value,
-              }))
-            }
-            required
-          />
-
-          <SearchDropdown
-            label="Image"
-            value={formData.image}
-            onChange={handleImageSearch}
-            onSelect={selectImage}
-            options={filteredImages}
-            showDropdown={showImageDropdown}
-            setShowDropdown={setShowImageDropdown}
-            placeholder="Search for an image..."
-            required
-          />
-
-          <PortsSection
-            ports={formData.ports}
-            onChange={(ports) => setFormData((prev) => ({ ...prev, ports }))}
-          />
-
-          <EnvironmentSection
-            variables={formData.environment}
-            onChange={(environment) =>
-              setFormData((prev) => ({ ...prev, environment }))
-            }
-          />
-
-          <VolumesSection
-            volumes={formData.volumes}
-            containerName={formData.containerName}
-            onChange={(volumes) =>
-              setFormData((prev) => ({ ...prev, volumes }))
-            }
+          <ContainerForm
+            formData={formData}
+            onFormDataChange={setFormData}
+            imageSearch={{
+              value: formData.image,
+              filteredImages,
+              showDropdown: showImageDropdown,
+              setShowDropdown: setShowImageDropdown,
+              handleSearch: handleImageSearch,
+              isLoading: isLoadingImages,
+            }}
           />
 
           <ResourceLimitsSection
-            systemResources={systemResources}
+            systemResources={resources}
             memory={formData.memory}
             cpu={formData.cpu}
-            onMemoryChange={(memory) =>
-              setFormData((prev) => ({ ...prev, memory }))
+            onMemoryChange={(value) =>
+              setFormData((prev) => ({ ...prev, memory: value }))
             }
-            onCpuChange={(cpu) => setFormData((prev) => ({ ...prev, cpu }))}
+            onCpuChange={(value) =>
+              setFormData((prev) => ({ ...prev, cpu: value }))
+            }
           />
-
-          <FormSection title="Restart Policy">
-            <Select
-              options={restartOptions}
-              value={formData.restart}
-              onChange={(value) =>
-                setFormData((prev) => ({ ...prev, restart: value }))
-              }
-            />
-          </FormSection>
 
           <div className="flex justify-end gap-2 mt-6">
             <Button
@@ -367,32 +138,30 @@ const CreateContainer = () => {
             >
               Cancel
             </Button>
-            <Button type="submit" className="bg-blue-500 hover:bg-blue-600">
+            <Button
+              type="submit"
+              className="bg-blue-500 hover:bg-blue-600"
+              isLoading={isCreating}
+            >
               Create
             </Button>
           </div>
         </form>
       </div>
 
-      <Modal
-        title="Save as Template"
+      <SaveTemplateModal
         isOpen={showSaveTemplateModal}
+        templateName={templateName}
         onClose={() => {
           setShowSaveTemplateModal(false);
           setTemplateName("");
         }}
-        onConfirm={handleSaveTemplate}
-        confirmText="Save"
-        confirmDisabled={!templateName.trim()}
-      >
-        <FormInput
-          value={templateName}
-          onChange={(e) => setTemplateName(e.target.value)}
-          placeholder="Enter template name"
-        />
-      </Modal>
+        onSave={handleSaveTemplate}
+        onNameChange={setTemplateName}
+      />
+
+      {/* Create some space to not hide the buttons with menu button on mobile */}
+      <div className="h-12 sm:h-0"></div>
     </div>
   );
-};
-
-export default CreateContainer;
+}

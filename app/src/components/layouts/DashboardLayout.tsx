@@ -1,8 +1,8 @@
-import React, { ReactNode, useState } from 'react';
-import { Outlet } from 'react-router-dom';
-import Sidebar from '../navigation/Sidebar';
-import Header from '../ui/Header';
-import { TbMenu2 } from 'react-icons/tb';
+import React, { ReactNode, useState } from "react";
+import { Outlet } from "react-router-dom";
+import Sidebar from "../navigation/Sidebar";
+import Header from "../ui/Header";
+import { TbMenu2 } from "react-icons/tb";
 
 interface DashboardLayoutProps {
   children?: ReactNode;
@@ -14,9 +14,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = () => {
   return (
     <div className="h-screen bg-gray-900 text-white flex flex-col overflow-hidden">
       <Header className="flex-none" />
-      
+
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar 
+        <Sidebar
           isOpen={isMobileMenuOpen}
           onClose={() => setIsMobileMenuOpen(false)}
         />
@@ -40,4 +40,4 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = () => {
   );
 };
 
-export default DashboardLayout; 
+export default DashboardLayout;

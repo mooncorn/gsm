@@ -310,6 +310,56 @@ func DownloadFile(c *gin.Context) {
 	}
 }
 
+// extractZip extracts a zip file to the specified destination
+func extractZip(zipFile string, destination string) error {
+	reader, err := zip.OpenReader(zipFile)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	for _, file := range reader.File {
+		// Sanitize file path to prevent zip slip
+		filePath := filepath.Join(destination, file.Name)
+		if !strings.HasPrefix(filePath, destination) {
+			continue // Skip files that would be extracted outside destination
+		}
+
+		if file.FileInfo().IsDir() {
+			os.MkdirAll(filePath, 0755)
+			continue
+		}
+
+		// Create directory for file if it doesn't exist
+		if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+			return err
+		}
+
+		// Create file
+		dstFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+		if err != nil {
+			return err
+		}
+
+		// Open file in zip
+		srcFile, err := file.Open()
+		if err != nil {
+			dstFile.Close()
+			return err
+		}
+
+		// Copy contents
+		_, err = io.Copy(dstFile, srcFile)
+		dstFile.Close()
+		srcFile.Close()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // UploadFile handles POST /files/upload
 func UploadFile(c *gin.Context) {
 	destination := c.PostForm("path")
@@ -331,7 +381,7 @@ func UploadFile(c *gin.Context) {
 	}
 
 	// Create destination directory if it doesn't exist
-	err = os.MkdirAll(filepath.Dir(fullPath), 0755)
+	err = os.MkdirAll(fullPath, 0755)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to create directory: %v", err)})
 		return
@@ -342,6 +392,28 @@ func UploadFile(c *gin.Context) {
 	// Save the file
 	if err := c.SaveUploadedFile(file, filePath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to save file: %v", err)})
+		return
+	}
+
+	// Check if the file is a zip file
+	mime, err := mimetype.DetectFile(filePath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to detect file type: %v", err)})
+		return
+	}
+
+	if mime.String() == "application/zip" {
+		// Extract the zip file
+		err = extractZip(filePath, fullPath)
+		if err != nil {
+			// Clean up the zip file if extraction fails
+			os.Remove(filePath)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to extract zip file: %v", err)})
+			return
+		}
+		// Remove the original zip file after successful extraction
+		os.Remove(filePath)
+		c.JSON(http.StatusOK, gin.H{"message": "zip file extracted successfully"})
 		return
 	}
 

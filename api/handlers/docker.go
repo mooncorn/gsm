@@ -36,7 +36,7 @@ type ContainerListItem struct {
 	Status string   `json:"status"`
 }
 
-type InspectContainerResponse struct {
+type ContainerInspectResponse struct {
 	ID         string              `json:"id"`
 	Created    time.Time           `json:"created"`
 	State      ContainerState      `json:"state"`
@@ -91,15 +91,19 @@ type ContainerPortBinding struct {
 }
 
 type ContainerCreateRequest struct {
-	Name    string        `json:"name" binding:"required"`
-	Image   string        `json:"image" binding:"required"`
-	Ports   []PortMapping `json:"ports"`
-	Env     []string      `json:"env"`
-	Memory  int64         `json:"memory" binding:"gte=0"`
-	CPU     float64       `json:"cpu" binding:"gte=0"`
-	Command []string      `json:"command"`
-	Restart string        `json:"restart" binding:"oneof=no on-failure always unless-stopped"`
-	Volumes []string      `json:"volumes"`
+	Name         string        `json:"name" binding:"required"`
+	Image        string        `json:"image" binding:"required"`
+	Ports        []PortMapping `json:"ports"`
+	Env          []string      `json:"env"`
+	Memory       int64         `json:"memory" binding:"gte=0"`
+	CPU          float64       `json:"cpu" binding:"gte=0"`
+	Command      []string      `json:"command"`
+	Restart      string        `json:"restart" binding:"oneof=no on-failure always unless-stopped"`
+	Volumes      []string      `json:"volumes"`
+	Tty          bool          `json:"tty"`
+	AttachStdin  bool          `json:"attachStdin"`
+	AttachStdout bool          `json:"attachStdout"`
+	AttachStderr bool          `json:"attachStderr"`
 }
 
 type ContainerRestartPolicy struct {
@@ -157,6 +161,10 @@ func (r *ContainerCreateRequest) ToDockerConfig() (*container.Config, *container
 		Env:          r.Env,
 		ExposedPorts: exposedPorts,
 		Volumes:      volumes,
+		Tty:          r.Tty,
+		AttachStdin:  r.AttachStdin,
+		AttachStdout: r.AttachStdout,
+		AttachStderr: r.AttachStderr,
 	}
 
 	// Create host config
@@ -283,7 +291,7 @@ func InspectContainer(c *gin.Context) {
 		AttachStderr: inspect.Config.AttachStderr,
 	}
 
-	c.JSON(200, InspectContainerResponse{
+	c.JSON(200, ContainerInspectResponse{
 		ID:      inspect.ID,
 		Created: created,
 		State: ContainerState{

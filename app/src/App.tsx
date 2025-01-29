@@ -3,25 +3,30 @@ import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import SignIn from "./features/auth/SignIn";
 import { ToastContainer } from "react-toastify";
 import { UserProvider, useUser } from "./UserContext";
-import Files from './features/files/Files';
+import Files from "./features/files/Files";
 import ContainerList from "./features/containers/ContainerList";
 import Container from "./features/containers/Container";
 import CreateContainer from "./features/containers/CreateContainer";
-import DockerImages from "./features/docker-images/DockerImages";
+import DockerImages from "./features/images/Images";
 import Users from "./features/users/Users";
 import DashboardLayout from "./components/layouts/DashboardLayout";
 
 const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useUser();
-  
+
   if (!user) {
     return <Navigate to="/signin" />;
   }
-  
+
   return <>{children}</>;
 };
 
@@ -29,7 +34,7 @@ const App: React.FC = () => {
   return (
     <Router>
       <UserProvider>
-        <div className="min-h-screen bg-gray-900 text-white">
+        <div className="page-container">
           <Routes>
             <Route path="/signin" element={<SignIn />} />
             <Route

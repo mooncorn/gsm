@@ -1,21 +1,22 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
-import { apiUrl } from './config/constants';
-import { User, UserContextType } from './types/user';
-
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { UserContextType } from "./types/user";
+import { User } from "./api";
+import { api } from "./api";
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const response = await axios.get(`${apiUrl}/user`, { withCredentials: true });
-        setUser(response.data);
+        const user = await api.auth.getCurrentUser();
+        setUser(user);
       } catch (error) {
-        console.error('Failed to fetch user:', error);
+        console.error("Failed to fetch user:", error);
         setUser(null);
       } finally {
         setIsLoading(false);
@@ -39,7 +40,7 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 export const useUser = () => {
   const context = useContext(UserContext);
   if (context === undefined) {
-    throw new Error('useUser must be used within a UserProvider');
+    throw new Error("useUser must be used within a UserProvider");
   }
   return context;
-}; 
+};

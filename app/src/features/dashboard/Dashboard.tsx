@@ -3,7 +3,7 @@ import DashboardLayout from "../../components/layouts/DashboardLayout";
 import ContainerList from "../containers/ContainerList";
 import Container from "../containers/Container";
 import CreateContainer from "../containers/CreateContainer";
-import DockerImages from "../docker-images/DockerImages";
+import DockerImages from "../images/Images";
 import Users from "../users/Users";
 import { useUser } from "../../UserContext";
 

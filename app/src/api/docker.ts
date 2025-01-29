@@ -2,13 +2,10 @@ import { apiClient } from "./config";
 import {
   ContainerListItem,
   ContainerDetails,
-  DockerImage,
+  Image,
   CreateContainerRequest,
+  ContainerExecResponse,
 } from "./types";
-
-export interface ContainerExecResponse {
-  output: string;
-}
 
 export const dockerApi = {
   // Container operations
@@ -67,15 +64,15 @@ export const dockerApi = {
 
   // Image operations
   listImages: async () => {
-    const response = await apiClient.get<DockerImage[]>("/docker/images");
+    const response = await apiClient.get<Image[]>("/docker/images");
     return response.data;
   },
 
   pullImage: (imageName: string) => {
     return new EventSource(
-      `${apiClient.defaults.baseURL}/docker/pull?imageName=${encodeURIComponent(
-        imageName
-      )}`,
+      `${
+        apiClient.defaults.baseURL
+      }/docker/images/pull?imageName=${encodeURIComponent(imageName)}`,
       {
         withCredentials: true,
       }
@@ -101,6 +98,3 @@ export const dockerApi = {
     );
   },
 };
-
-// Export apiClient for EventSource URLs
-export { apiClient };

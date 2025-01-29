@@ -1,6 +1,6 @@
 import React from "react";
 import { TbCubeSpark } from "react-icons/tb";
-import { apiClient } from "../../api-client";
+import { apiClient } from "../../api/config";
 
 const SignIn: React.FC = () => {
   const handleSignIn = () => {

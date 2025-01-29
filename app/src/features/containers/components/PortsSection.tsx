@@ -4,7 +4,7 @@ import FormInput from "../../../components/ui/FormInput";
 import Select from "../../../components/ui/Select";
 import Button from "../../../components/ui/Button";
 import { IoAddCircleOutline, IoRemoveCircleOutline } from "react-icons/io5";
-import { Port } from "../../../hooks/useContainerTemplates";
+import { Port } from "../../../types/docker";
 
 interface PortsSectionProps {
   ports: Port[];

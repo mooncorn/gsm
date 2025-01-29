@@ -5,14 +5,10 @@ import Button from "../../../components/ui/Button";
 import Card from "../../../components/ui/Card";
 import { IoAddCircleOutline, IoRemoveCircleOutline } from "react-icons/io5";
 
-interface Volume {
-  path: string;
-}
-
 interface VolumesSectionProps {
-  volumes: Volume[];
+  volumes: string[];
   containerName: string;
-  onChange: (volumes: Volume[]) => void;
+  onChange: (volumes: string[]) => void;
 }
 
 export const VolumesSection: React.FC<VolumesSectionProps> = ({
@@ -21,7 +17,7 @@ export const VolumesSection: React.FC<VolumesSectionProps> = ({
   onChange,
 }) => {
   const addVolume = () => {
-    onChange([...volumes, { path: "" }]);
+    onChange([...volumes, ""]);
   };
 
   const removeVolume = (index: number) => {
@@ -30,7 +26,7 @@ export const VolumesSection: React.FC<VolumesSectionProps> = ({
 
   const updateVolume = (index: number, path: string) => {
     const newVolumes = [...volumes];
-    newVolumes[index] = { path };
+    newVolumes[index] = path;
     onChange(newVolumes);
   };
 
@@ -60,8 +56,8 @@ export const VolumesSection: React.FC<VolumesSectionProps> = ({
       {volumes.map((volume, index) => (
         <div key={index} className="flex flex-col sm:flex-row gap-2 mb-2">
           <FormInput
-            placeholder="Path (e.g. data)"
-            value={volume.path}
+            placeholder="Path (e.g. /data)"
+            value={volume}
             onChange={(e) => updateVolume(index, e.target.value)}
           />
           <Button

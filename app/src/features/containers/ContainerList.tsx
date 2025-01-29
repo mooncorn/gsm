@@ -1,129 +1,35 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
-import Button from "../../components/ui/Button";
 import { HiOutlineRefresh } from "react-icons/hi";
 import { FaPlus } from "react-icons/fa6";
+import Button from "../../components/ui/Button";
 import PageHeader from "../../components/ui/PageHeader";
-import { api, ContainerListItem } from "../../api-client";
+import { useContainerList } from "./hooks/useContainerList";
+import { useDockerEvents } from "./hooks/useDockerEvents";
+import { ContainerCard } from "./components/ContainerCard";
 
-const ContainerList = () => {
-  const [containers, setContainers] = useState<ContainerListItem[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const dockerEventSourceRef = useRef<EventSource | null>(null);
+export default function ContainerList() {
   const navigate = useNavigate();
+  const {
+    containers,
+    isLoading,
+    fetchContainers,
+    getContainerName,
+    capitalizeFirstLetter,
+    cleanStatus,
+  } = useContainerList();
 
-  const fetchContainers = async () => {
-    try {
-      setIsLoading(true);
-      const data = await api.docker.listContainers();
-      setContainers(data);
-    } catch (err: any) {
-      toast(err.message || "Failed to fetch containers", {
-        type: "error",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const { connectToDockerEvents, disconnectDockerEvents } =
+    useDockerEvents(fetchContainers);
 
   useEffect(() => {
     fetchContainers();
     connectToDockerEvents();
 
-    // Cleanup when component unmounts
     return () => {
       disconnectDockerEvents();
     };
   }, []);
-
-  const connectToDockerEvents = () => {
-    if (!dockerEventSourceRef.current) {
-      dockerEventSourceRef.current = api.docker.streamDockerEvents();
-
-      dockerEventSourceRef.current.onmessage = (event) => {
-        const eventData = JSON.parse(event.data);
-
-        // Only handle container events
-        if (
-          eventData.event_type === "container" &&
-          ["start", "die", "create", "remove"].includes(eventData.action)
-        ) {
-          fetchContainers();
-        }
-      };
-
-      dockerEventSourceRef.current.onerror = (error) => {
-        console.error("Docker EventSource failed:", error);
-        disconnectDockerEvents();
-        // Try to reconnect after a delay
-        setTimeout(connectToDockerEvents, 5000);
-      };
-    }
-  };
-
-  const disconnectDockerEvents = () => {
-    if (dockerEventSourceRef.current) {
-      dockerEventSourceRef.current.close();
-      dockerEventSourceRef.current = null;
-    }
-  };
-
-  const getContainerName = (container: ContainerListItem) => {
-    return container.names[0].replace("/", "");
-  };
-
-  const capitalizeFirstLetter = (val: string) => {
-    return String(val).charAt(0).toUpperCase() + String(val).slice(1);
-  };
-
-  const cleanStatus = (status: string) => {
-    // For running containers: "Up 2 hours (healthy)" -> "Up 2 hours"
-    // For stopped containers: "Exited (0) 3 hours ago" -> "Stopped 3 hours ago"
-    if (status.startsWith("Up")) {
-      return status.replace(/\s*\([^)]*\)/, "");
-    } else if (status.startsWith("Exited")) {
-      return status.replace(/Exited\s*\([^)]*\)/, "Stopped");
-    }
-    return status;
-  };
-
-  const renderContainerCards = () => {
-    return containers.map((c) => (
-      <div
-        key={c.id}
-        className="bg-gray-800 rounded-lg p-4 hover:bg-gray-700 transition-colors duration-200"
-      >
-        <div className="flex flex-col space-y-2">
-          <div className="flex items-center justify-between gap-4">
-            <div
-              className="text-blue-300 hover:underline cursor-pointer text-lg font-medium"
-              onClick={() => navigate(`/containers/${getContainerName(c)}`)}
-            >
-              {getContainerName(c)}
-            </div>
-            <div className="flex items-center gap-2">
-              <span
-                className={`px-2 py-1 text-xs rounded whitespace-nowrap ${
-                  c.state === "running"
-                    ? "bg-green-900 text-green-100"
-                    : "bg-red-900 text-red-100"
-                }`}
-              >
-                {capitalizeFirstLetter(c.state)}
-              </span>
-            </div>
-          </div>
-          <div className="flex flex-col space-y-1">
-            <span className="text-sm text-gray-400 break-all">{c.image}</span>
-            <span className="text-xs text-gray-500">
-              {cleanStatus(c.status)}
-            </span>
-          </div>
-        </div>
-      </div>
-    ));
-  };
 
   return (
     <div className="space-y-4">
@@ -148,10 +54,17 @@ const ContainerList = () => {
 
       {/* Mobile and Desktop Views */}
       <div className="grid gap-4 grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-        {renderContainerCards()}
+        {containers.map((container) => (
+          <ContainerCard
+            key={container.id}
+            container={container}
+            getContainerName={getContainerName}
+            capitalizeFirstLetter={capitalizeFirstLetter}
+            cleanStatus={cleanStatus}
+            onContainerClick={(name) => navigate(`/containers/${name}`)}
+          />
+        ))}
       </div>
     </div>
   );
-};
-
-export default ContainerList;
+}

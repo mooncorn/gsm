@@ -1,8 +1,8 @@
-import React from "react";
 import FormSection from "../../../components/ui/FormSection";
 import FormInput from "../../../components/ui/FormInput";
 import Card from "../../../components/ui/Card";
-import { SystemResources } from "../types";
+import { formatMemoryMB, formatPercent } from "../../../utils/formatSystem";
+import { SystemResources } from "../../../types/system";
 
 interface ResourceLimitsSectionProps {
   systemResources: SystemResources | null;
@@ -12,88 +12,81 @@ interface ResourceLimitsSectionProps {
   onCpuChange: (value: string) => void;
 }
 
-export const ResourceLimitsSection: React.FC<ResourceLimitsSectionProps> = ({
+interface ResourceInfoProps {
+  label: string;
+  value: string;
+  subValue?: string;
+}
+
+function ResourceInfo({ label, value, subValue }: ResourceInfoProps) {
+  return (
+    <div>
+      <p className="text-gray-400">{label}:</p>
+      <p className="text-white">
+        {value}
+        {subValue && (
+          <span className="text-gray-400 text-xs ml-1">{subValue}</span>
+        )}
+      </p>
+    </div>
+  );
+}
+
+export function ResourceLimitsSection({
   systemResources,
   memory,
   cpu,
   onMemoryChange,
   onCpuChange,
-}) => {
+}: ResourceLimitsSectionProps) {
+  if (!systemResources) {
+    return null;
+  }
+
+  const memoryMB = formatMemoryMB(systemResources.memory?.free);
+  const totalMemoryMB = formatMemoryMB(systemResources.memory?.total);
+
   return (
     <FormSection title="Resource Limits">
-      {systemResources && (
-        <Card className="mb-4">
-          <h4 className="text-sm font-medium text-blue-400 mb-2">
-            Available System Resources
-          </h4>
-          <div className="grid grid-cols-1 gap-4 text-sm">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-gray-400">Memory:</p>
-                <p className="text-white">
-                  {systemResources.memory?.free
-                    ? Math.round(systemResources.memory.free / (1024 * 1024))
-                    : 0}{" "}
-                  MB free
-                  <span className="text-gray-400 text-xs ml-1">
-                    of{" "}
-                    {systemResources.memory?.total
-                      ? Math.round(systemResources.memory.total / (1024 * 1024))
-                      : 0}{" "}
-                    MB
-                  </span>
-                </p>
-                <p className="text-gray-400 text-xs">
-                  {typeof systemResources.memory?.used_percent === "number"
-                    ? systemResources.memory.used_percent.toFixed(1)
-                    : "0"}
-                  % used
-                </p>
-              </div>
-              <div>
-                <p className="text-gray-400">CPU:</p>
-                <p className="text-white">
-                  {systemResources.cpu?.cores || 0} cores
-                  <span className="text-gray-400 text-xs ml-1">
-                    (
-                    {typeof systemResources.cpu?.used === "number"
-                      ? systemResources.cpu.used.toFixed(1)
-                      : "0"}
-                    % used)
-                  </span>
-                </p>
-                <p className="text-gray-400 text-xs">
-                  {systemResources.cpu?.model_name || "Unknown CPU"}
-                </p>
-              </div>
-            </div>
+      <Card className="mb-4">
+        <h4 className="text-sm font-medium text-blue-400 mb-2">
+          Available System Resources
+        </h4>
+        <div className="grid grid-cols-1 gap-4 text-sm">
+          <div className="grid grid-cols-2 gap-4">
+            <ResourceInfo
+              label="Memory"
+              value={`${memoryMB} MB free`}
+              subValue={`of ${totalMemoryMB} MB`}
+            />
+            <ResourceInfo
+              label="CPU"
+              value={`${systemResources.cpu?.cores || 0} cores`}
+              subValue={`(${formatPercent(systemResources.cpu?.used)}% used)`}
+            />
+          </div>
 
-            <div className="border-t border-gray-700 pt-2 mt-2">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-gray-400 text-xs">Docker Containers:</p>
-                  <p className="text-white">
-                    {systemResources.docker?.running_containers || 0} running
-                    <span className="text-gray-400 text-xs ml-1">
-                      of {systemResources.docker?.total_containers || 0} total
-                    </span>
-                  </p>
-                  <p className="text-gray-400 text-xs">
-                    {systemResources.docker?.total_images || 0} images available
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-400 text-xs">System:</p>
-                  <p className="text-white text-xs">
-                    {systemResources.system?.platform || "Unknown"} (
-                    {systemResources.cpu?.architecture || "Unknown"})
-                  </p>
-                </div>
-              </div>
+          <div className="border-t border-gray-700 pt-2 mt-2">
+            <div className="grid grid-cols-2 gap-4">
+              <ResourceInfo
+                label="Docker Containers"
+                value={`${
+                  systemResources.docker?.running_containers || 0
+                } running`}
+                subValue={`of ${
+                  systemResources.docker?.total_containers || 0
+                } total`}
+              />
+              <ResourceInfo
+                label="System"
+                value={`${systemResources.system?.platform || "Unknown"} (${
+                  systemResources.cpu?.architecture || "Unknown"
+                })`}
+              />
             </div>
           </div>
-        </Card>
-      )}
+        </div>
+      </Card>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormInput
           label="Memory (MB)"
@@ -110,4 +103,4 @@ export const ResourceLimitsSection: React.FC<ResourceLimitsSectionProps> = ({
       </div>
     </FormSection>
   );
-};
+}

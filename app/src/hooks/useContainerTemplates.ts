@@ -1,38 +1,11 @@
 import { useState, useEffect } from "react";
-import { toast, Bounce } from "react-toastify";
-
-export interface ContainerTemplate {
-  name: string;
-  image: string;
-  containerName: string;
-  volumes: string[];
-  ports: Port[];
-  environment: { key: string; value: string }[];
-  memory: string;
-  cpu: string;
-  restart: string;
-}
-
-export interface ContainerFormData {
-  containerName: string;
-  image: string;
-  ports: Port[];
-  environment: { key: string; value: string }[];
-  volumes: { path: string }[];
-  memory: string;
-  cpu: string;
-  restart: string;
-}
-
-export interface Port {
-  hostPort: string;
-  containerPort: string;
-  protocol: string;
-}
+import { ContainerTemplate, TemplateStore } from "../types/docker";
+import { useToast } from "./useToast";
 
 export function useContainerTemplates() {
-  const [templates, setTemplates] = useState<ContainerTemplate[]>([]);
+  const [templates, setTemplates] = useState<TemplateStore>({});
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const toast = useToast();
 
   useEffect(() => {
     // Load templates from localStorage on hook mount
@@ -42,165 +15,62 @@ export function useContainerTemplates() {
     }
   }, []);
 
-  const saveTemplate = (templateName: string, formData: ContainerFormData) => {
-    const newTemplate: ContainerTemplate = {
-      name: templateName,
-      image: formData.image,
-      containerName: formData.containerName,
-      volumes: formData.volumes.map((vol) => vol.path),
-      ports: formData.ports.map((port) => ({
-        containerPort: port.containerPort,
-        hostPort: port.hostPort,
-        protocol: port.protocol,
-      })),
-      environment: formData.environment,
-      memory: formData.memory,
-      cpu: formData.cpu,
-      restart: formData.restart,
+  const saveTemplate = (templateName: string, formData: ContainerTemplate) => {
+    const updatedTemplates = {
+      ...templates,
+      [templateName]: formData,
     };
-
-    const updatedTemplates = templates.filter((t) => t.name !== templateName);
-    updatedTemplates.push(newTemplate);
 
     setTemplates(updatedTemplates);
     localStorage.setItem(
       "containerTemplates",
       JSON.stringify(updatedTemplates)
     );
-
-    toast.success("Template saved successfully", {
-      position: "bottom-right",
-      autoClose: 3000,
-      hideProgressBar: true,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-      theme: "colored",
-      transition: Bounce,
-    });
-
+    toast.success("Template saved successfully");
     return updatedTemplates;
   };
 
-  const updateTemplate = (formData: ContainerFormData) => {
+  const updateTemplate = (formData: ContainerTemplate) => {
     if (!selectedTemplate) {
-      toast.error("No template selected", {
-        position: "bottom-right",
-        autoClose: 3000,
-        hideProgressBar: true,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "colored",
-        transition: Bounce,
-      });
+      toast.error("No template selected");
       return;
     }
 
-    const updatedTemplate: ContainerTemplate = {
-      name: selectedTemplate,
-      image: formData.image,
-      containerName: formData.containerName,
-      volumes: formData.volumes.map((vol) => vol.path),
-      ports: formData.ports,
-      environment: formData.environment,
-      memory: formData.memory,
-      cpu: formData.cpu,
-      restart: formData.restart,
+    const updatedTemplates = {
+      ...templates,
+      [selectedTemplate]: formData,
     };
-
-    const updatedTemplates = templates.map((t) =>
-      t.name === selectedTemplate ? updatedTemplate : t
-    );
 
     setTemplates(updatedTemplates);
     localStorage.setItem(
       "containerTemplates",
       JSON.stringify(updatedTemplates)
     );
-
-    toast.success("Template updated successfully", {
-      position: "bottom-right",
-      autoClose: 3000,
-      hideProgressBar: true,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-      theme: "colored",
-      transition: Bounce,
-    });
+    toast.success("Template updated successfully");
   };
 
   const deleteTemplate = () => {
     if (!selectedTemplate) {
-      toast.error("No template selected", {
-        position: "bottom-right",
-        autoClose: 3000,
-        hideProgressBar: true,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "colored",
-        transition: Bounce,
-      });
+      toast.error("No template selected");
       return;
     }
 
-    const updatedTemplates = templates.filter(
-      (t) => t.name !== selectedTemplate
-    );
+    const { [selectedTemplate]: _, ...updatedTemplates } = templates;
     setTemplates(updatedTemplates);
     localStorage.setItem(
       "containerTemplates",
       JSON.stringify(updatedTemplates)
     );
     setSelectedTemplate("");
-
-    toast.success("Template deleted successfully", {
-      position: "bottom-right",
-      autoClose: 3000,
-      hideProgressBar: true,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-      theme: "colored",
-      transition: Bounce,
-    });
+    toast.success("Template deleted successfully");
   };
 
-  const loadTemplate = (templateName: string): ContainerFormData | null => {
-    const template = templates.find((t) => t.name === templateName);
-    if (!template) return null;
+  const loadTemplate = (templateName: string): ContainerTemplate | null => {
+    return templates[templateName] || null;
+  };
 
-    const formData: ContainerFormData = {
-      image: template.image,
-      containerName: template.containerName,
-      volumes: template.volumes.map((path) => ({ path })),
-      ports: template.ports,
-      environment: template.environment,
-      memory: template.memory,
-      cpu: template.cpu,
-      restart: template.restart,
-    };
-
-    toast.success("Template loaded successfully", {
-      position: "bottom-right",
-      autoClose: 3000,
-      hideProgressBar: true,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-      progress: undefined,
-      theme: "colored",
-      transition: Bounce,
-    });
-
-    return formData;
+  const getTemplateNames = (): string[] => {
+    return Object.keys(templates);
   };
 
   return {
@@ -211,5 +81,6 @@ export function useContainerTemplates() {
     updateTemplate,
     deleteTemplate,
     loadTemplate,
+    getTemplateNames,
   };
 }

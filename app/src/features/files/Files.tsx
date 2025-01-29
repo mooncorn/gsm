@@ -1,185 +1,70 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { FileInfo } from "../../types/files";
-import { toast, Bounce } from "react-toastify";
+import React, { useState } from "react";
+import { FileInfo } from "../../api";
+import { api } from "../../api";
 import Button from "../../components/ui/Button";
-import {
-  TbFile,
-  TbFolder,
-  TbDownload,
-  TbTrash,
-  TbEdit,
-  TbFolderPlus,
-  TbUpload,
-  TbArrowLeft,
-} from "react-icons/tb";
-import { formatBytes, formatDate } from "../../utils/format";
-import { IoArrowBack } from "react-icons/io5";
-import { api } from "../../api-client";
+import { TbFolderPlus, TbUpload, TbArrowLeft } from "react-icons/tb";
+import Breadcrumb from "../../components/ui/Breadcrumb";
+import { FileList } from "./components/FileList";
+import { FileEditor } from "./components/FileEditor";
+import { useFiles } from "./hooks/useFiles";
+import Modal from "../../components/ui/Modal";
+import FormInput from "../../components/ui/FormInput";
+import { useToast } from "../../hooks/useToast";
 
-// This interface is used in the type assertion for directory upload
-interface DirectoryInputProps
-  extends Omit<
-    React.InputHTMLAttributes<HTMLInputElement>,
-    "webkitdirectory" | "directory"
-  > {
-  webkitdirectory?: string;
-  directory?: string;
-}
+export function Files() {
+  const {
+    files,
+    currentPath,
+    isLoading,
+    createDirectory,
+    deleteFile,
+    uploadFiles,
+    readFile,
+    writeFile,
+    navigateToParent,
+    navigateToPath,
+  } = useFiles();
 
-const Files: React.FC = () => {
-  const [files, setFiles] = useState<FileInfo[]>([]);
-  const [currentPath, setCurrentPath] = useState("");
   const [selectedFile, setSelectedFile] = useState<FileInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [fileContent, setFileContent] = useState("");
+  const [showFileEditor, setShowFileEditor] = useState(false);
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
-  const [showFileEditor, setShowFileEditor] = useState(false);
-  const [fileContent, setFileContent] = useState("");
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<FileInfo | null>(null);
-
-  const fetchFiles = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const data = await api.files.list(currentPath);
-      setFiles(data || []);
-    } catch (err: any) {
-      setFiles([]);
-      toast.error(err.message || "Failed to fetch files", {
-        position: "bottom-right",
-        autoClose: 3000,
-        hideProgressBar: true,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "colored",
-        transition: Bounce,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentPath]);
-
-  useEffect(() => {
-    fetchFiles();
-  }, [fetchFiles]);
-
+  const [isUploading, setIsUploading] = useState(false);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const toast = useToast();
   const handleFileClick = async (file: FileInfo) => {
     if (file.isDir) {
-      setCurrentPath(file.path);
+      navigateToPath(file.path);
     } else if (file.isReadable) {
-      try {
-        const data = await api.files.getContent(file.path);
-        setFileContent(data.content);
+      const content = await readFile(file);
+      if (content !== null) {
+        setFileContent(content);
         setSelectedFile(file);
         setShowFileEditor(true);
-      } catch (err: any) {
-        if (err.response?.data?.mime) {
-          // This is a binary file
-          toast.error(`Cannot edit binary file (${err.response.data.mime})`, {
-            position: "bottom-right",
-            autoClose: 3000,
-            hideProgressBar: true,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-            progress: undefined,
-            theme: "colored",
-            transition: Bounce,
-          });
-        } else {
-          toast.error(err.message || "Failed to read file", {
-            position: "bottom-right",
-            autoClose: 3000,
-            hideProgressBar: true,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-            progress: undefined,
-            theme: "colored",
-            transition: Bounce,
-          });
-        }
       }
     }
-  };
-
-  const handleNavigateUp = () => {
-    const parentPath = currentPath.split("/").slice(0, -1).join("/");
-    setCurrentPath(parentPath);
   };
 
   const handleCreateFolder = async () => {
     if (!newFolderName) return;
 
     try {
-      await api.files.createDirectory(
-        `${currentPath}/${newFolderName}`.replace(/^\/+/, "")
-      );
-      setShowNewFolderDialog(false);
-      setNewFolderName("");
-      fetchFiles();
-      toast.success("Folder created successfully", {
-        position: "bottom-right",
-        autoClose: 3000,
-        hideProgressBar: true,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "colored",
-        transition: Bounce,
-      });
-    } catch (err: any) {
-      toast.error(err.message || "Failed to create folder", {
-        position: "bottom-right",
-        autoClose: 3000,
-        hideProgressBar: true,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "colored",
-        transition: Bounce,
-      });
+      setIsCreatingFolder(true);
+      const success = await createDirectory(newFolderName);
+      if (success) {
+        setShowNewFolderDialog(false);
+        setNewFolderName("");
+      }
+    } finally {
+      setIsCreatingFolder(false);
     }
   };
 
-  const handleSaveFile = async () => {
-    if (!selectedFile) return;
-
-    try {
-      await api.files.write(selectedFile.path, fileContent);
-      setShowFileEditor(false);
-      fetchFiles();
-      toast.success("File saved successfully", {
-        position: "bottom-right",
-        autoClose: 3000,
-        hideProgressBar: true,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "colored",
-        transition: Bounce,
-      });
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save file", {
-        position: "bottom-right",
-        autoClose: 3000,
-        hideProgressBar: true,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "colored",
-        transition: Bounce,
-      });
-    }
-  };
-
-  const handleDelete = async (file: FileInfo) => {
+  const handleDelete = (file: FileInfo) => {
     setFileToDelete(file);
     setShowDeleteConfirmation(true);
   };
@@ -188,39 +73,15 @@ const Files: React.FC = () => {
     if (!fileToDelete) return;
 
     try {
-      await api.files.delete(fileToDelete.path);
-      fetchFiles();
-      toast.success("Deleted successfully", {
-        position: "bottom-right",
-        autoClose: 3000,
-        hideProgressBar: true,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "colored",
-        transition: Bounce,
-      });
-    } catch (err: any) {
-      toast.error(err.message || "Failed to delete", {
-        position: "bottom-right",
-        autoClose: 3000,
-        hideProgressBar: true,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "colored",
-        transition: Bounce,
-      });
+      setIsDeleting(true);
+      const success = await deleteFile(fileToDelete);
+      if (success) {
+        setShowDeleteConfirmation(false);
+        setFileToDelete(null);
+      }
     } finally {
-      setShowDeleteConfirmation(false);
-      setFileToDelete(null);
+      setIsDeleting(false);
     }
-  };
-
-  const handleDownload = async (file: FileInfo) => {
-    api.files.download(file.path);
   };
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -228,319 +89,139 @@ const Files: React.FC = () => {
     if (!files || files.length === 0) return;
 
     try {
-      const fileArray = Array.from(files);
-      for (const file of fileArray) {
-        await api.files.upload(currentPath, file);
-      }
-      fetchFiles();
-      toast.success(
-        fileArray.length > 1
-          ? "Files uploaded successfully"
-          : "File uploaded successfully",
-        {
-          position: "bottom-right",
-          autoClose: 3000,
-          hideProgressBar: true,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          progress: undefined,
-          theme: "colored",
-          transition: Bounce,
-        }
-      );
-    } catch (err: any) {
-      toast.error(err.message || "Failed to upload file(s)", {
-        position: "bottom-right",
-        autoClose: 3000,
-        hideProgressBar: true,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "colored",
-        transition: Bounce,
-      });
+      setIsUploading(true);
+      await uploadFiles(files);
+    } catch (error) {
+      toast.error("Failed to upload files");
+    } finally {
+      setIsUploading(false);
+      // Clear the input value to allow uploading the same file again
+      event.target.value = "";
     }
   };
 
   if (showFileEditor && selectedFile) {
     return (
-      <div className="p-4 sm:p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <Button
-            onClick={() => {
-              setShowFileEditor(false);
-              setSelectedFile(null);
-              setFileContent("");
-            }}
-            icon={<IoArrowBack className="h-5 w-5" />}
-            className="bg-gray-700 hover:bg-gray-600"
-          >
-            Back to Files
-          </Button>
-          <h2 className="text-2xl font-bold">Edit {selectedFile.name}</h2>
-        </div>
-
-        <div className="max-w-4xl">
-          <div className="bg-gray-800 rounded-lg p-4">
-            <textarea
-              value={fileContent}
-              onChange={(e) => setFileContent(e.target.value)}
-              className="w-full h-[60vh] px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none font-mono resize-none"
-            />
-
-            <div className="flex justify-end gap-2 mt-4">
-              <Button
-                onClick={() => {
-                  setShowFileEditor(false);
-                  setSelectedFile(null);
-                  setFileContent("");
-                }}
-                className="bg-gray-700 hover:bg-gray-600"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSaveFile}
-                className="bg-blue-500 hover:bg-blue-600"
-              >
-                Save
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <FileEditor
+        file={selectedFile}
+        initialContent={fileContent}
+        onSave={(content) => writeFile(selectedFile.path, content)}
+        onClose={() => {
+          setShowFileEditor(false);
+          setSelectedFile(null);
+          setFileContent("");
+        }}
+      />
     );
   }
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-4">
-          {currentPath && (
+    <div className="space-y-4">
+      <div className="space-y-4">
+        <div className="flex flex-row items-start sm:items-center justify-between gap-4 mb-6">
+          <div className="flex flex-row gap-2 sm:items-center sm:gap-4">
+            {currentPath && (
+              <Button
+                onClick={navigateToParent}
+                icon={<TbArrowLeft />}
+                className="bg-gray-700 hover:bg-gray-600"
+              />
+            )}
+            <h1 className="text-2xl font-bold">Files</h1>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
             <Button
-              onClick={handleNavigateUp}
-              icon={<TbArrowLeft className="h-5 w-5" />}
+              onClick={() => setShowNewFolderDialog(true)}
+              icon={<TbFolderPlus />}
               className="bg-gray-700 hover:bg-gray-600"
             />
-          )}
-          <h1 className="text-2xl font-bold">Files</h1>
-          <span className="text-gray-400">{currentPath || "/"}</span>
-        </div>
-
-        <div className="flex gap-2">
-          <Button
-            onClick={() => setShowNewFolderDialog(true)}
-            icon={<TbFolderPlus className="h-5 w-5" />}
-            className="bg-gray-700 hover:bg-gray-600"
-          >
-            New Folder
-          </Button>
-          <div className="flex gap-2">
-            <input
-              type="file"
-              id="file-upload"
-              className="hidden"
-              onChange={handleUpload}
-              multiple
-            />
-            <input
-              type="file"
-              id="folder-upload"
-              className="hidden"
-              onChange={handleUpload}
-              {...({
-                webkitdirectory: "",
-                directory: "",
-              } as DirectoryInputProps)}
-              multiple
-            />
-            <Button
-              onClick={() => document.getElementById("file-upload")?.click()}
-              icon={<TbUpload className="h-5 w-5" />}
-              className="bg-blue-500 hover:bg-blue-600"
-            >
-              Upload File
-            </Button>
-            <Button
-              onClick={() => document.getElementById("folder-upload")?.click()}
-              icon={<TbFolderPlus className="h-5 w-5" />}
-              className="bg-blue-500 hover:bg-blue-600"
-            >
-              Upload Folder
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* File List */}
-      <div className="bg-gray-800 rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full">
-            <thead className="bg-gray-900">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-semibold">
-                  Name
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">
-                  Size
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">
-                  Modified
-                </th>
-                <th className="px-4 py-3 text-left text-sm font-semibold">
-                  Permissions
-                </th>
-                <th className="px-4 py-3 text-right text-sm font-semibold">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-700">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-3 text-center">
-                    Loading...
-                  </td>
-                </tr>
-              ) : !files || files.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-3 text-center">
-                    No files found
-                  </td>
-                </tr>
-              ) : (
-                files.map((file) => (
-                  <tr
-                    key={file.path}
-                    className="hover:bg-gray-700 transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      <div
-                        className="flex items-center gap-2 cursor-pointer"
-                        onClick={() => handleFileClick(file)}
-                      >
-                        {file.isDir ? (
-                          <TbFolder className="text-yellow-400 text-xl" />
-                        ) : (
-                          <TbFile className="text-blue-400 text-xl" />
-                        )}
-                        <span>{file.name}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      {file.isDir ? "--" : formatBytes(file.size)}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      {formatDate(new Date(file.modTime))}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-mono">
-                      {file.permissions}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-end gap-2">
-                        {file.isReadable && (
-                          <Button
-                            onClick={() => handleDownload(file)}
-                            icon={<TbDownload className="h-4 w-4" />}
-                            className="p-1"
-                            title={file.isDir ? "Download as ZIP" : "Download"}
-                          />
-                        )}
-                        {!file.isDir && file.isWritable && (
-                          <Button
-                            onClick={() => handleFileClick(file)}
-                            icon={<TbEdit className="h-4 w-4" />}
-                            className="p-1"
-                            title="Edit"
-                          />
-                        )}
-                        <Button
-                          onClick={() => handleDelete(file)}
-                          icon={<TbTrash className="h-4 w-4" />}
-                          className="p-1 hover:bg-red-500"
-                          title="Delete"
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* New Folder Dialog */}
-      {showNewFolderDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Create New Folder</h2>
-            <input
-              type="text"
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-700 rounded border border-gray-600 focus:border-blue-500 focus:outline-none mb-4"
-              placeholder="Folder name"
-            />
-            <div className="flex justify-end gap-2">
+            <div className="flex gap-2">
+              <input
+                type="file"
+                id="file-upload"
+                className="hidden"
+                onChange={handleUpload}
+                multiple
+                disabled={isUploading}
+              />
               <Button
-                onClick={() => {
-                  setShowNewFolderDialog(false);
-                  setNewFolderName("");
-                }}
-                className="bg-gray-700 hover:bg-gray-600"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleCreateFolder}
+                onClick={() => document.getElementById("file-upload")?.click()}
+                icon={<TbUpload />}
                 className="bg-blue-500 hover:bg-blue-600"
-              >
-                Create
-              </Button>
+                isLoading={isUploading}
+              />
             </div>
           </div>
         </div>
-      )}
+        <div className="flex flex-col gap-1">
+          <Breadcrumb
+            root="files"
+            path={currentPath}
+            onNavigate={navigateToPath}
+          />
+        </div>
+      </div>
+
+      <FileList
+        files={files}
+        isLoading={isLoading}
+        onFileClick={handleFileClick}
+        onDownload={(file) => api.files.download(file.path)}
+        onDelete={handleDelete}
+      />
+
+      {/* New Folder Dialog */}
+      <Modal
+        title="Create New Folder"
+        isOpen={showNewFolderDialog}
+        onClose={() => {
+          setShowNewFolderDialog(false);
+          setNewFolderName("");
+        }}
+        onConfirm={handleCreateFolder}
+        confirmText="Create"
+        confirmDisabled={!newFolderName.trim()}
+        isLoading={isCreatingFolder}
+      >
+        <FormInput
+          value={newFolderName}
+          onChange={(e) => setNewFolderName(e.target.value)}
+          placeholder="Folder name"
+          disabled={isCreatingFolder}
+        />
+      </Modal>
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirmation && fileToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Confirm Delete</h2>
-            <p className="mb-6">
-              Are you sure you want to delete{" "}
-              <span className="font-semibold">{fileToDelete.name}</span>?
-              {fileToDelete.isDir && (
-                <span className="block mt-2 text-red-400">
-                  Warning: This will delete the folder and all its contents.
-                </span>
-              )}
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button
-                onClick={() => {
-                  setShowDeleteConfirmation(false);
-                  setFileToDelete(null);
-                }}
-                className="bg-gray-700 hover:bg-gray-600"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleConfirmDelete}
-                className="bg-red-500 hover:bg-red-600"
-              >
-                Delete
-              </Button>
-            </div>
-          </div>
-        </div>
+        <Modal
+          title="Confirm Delete"
+          isOpen={showDeleteConfirmation}
+          onClose={() => {
+            setShowDeleteConfirmation(false);
+            setFileToDelete(null);
+          }}
+          onConfirm={handleConfirmDelete}
+          confirmText="Delete"
+          confirmStyle="danger"
+          isLoading={isDeleting}
+        >
+          <p className="mb-6">
+            Are you sure you want to delete{" "}
+            <span className="font-semibold">{fileToDelete.name}</span>?
+            {fileToDelete.isDir && (
+              <span className="block mt-2 text-red-400">
+                Warning: This will delete the folder and all its contents.
+              </span>
+            )}
+          </p>
+        </Modal>
       )}
+
+      {/* Create some space to not hide the buttons with menu button on mobile */}
+      <div className="h-12 sm:h-0"></div>
     </div>
   );
-};
+}
 
 export default Files;
