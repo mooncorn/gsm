@@ -59,25 +59,26 @@ func main() {
 	})
 
 	// Move SSE endpoints to the SSE group
-	sseGroup.GET("/docker/logs/:id/stream", handlers.LogsStream)
+	sseGroup.GET("/docker/containers/:id/logs/stream", handlers.LogsStream)
 	sseGroup.GET("/docker/events", handlers.StreamDockerEvents)
 	sseGroup.GET("/system/resources/stream", handlers.StreamSystemResources)
 
 	// Docker Routes (non-SSE)
 	r.POST("/docker/containers", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.ContainerCreate)
+	r.GET("/docker/containers", middlewares.CheckUser, middlewares.RequireUser, handlers.ContainerList)
+	r.GET("/docker/containers/:id", middlewares.CheckUser, middlewares.RequireUser, handlers.InspectContainer)
+	r.GET("/docker/containers/:id/logs", middlewares.CheckUser, middlewares.RequireUser, handlers.Logs)
+	r.POST("/docker/containers/:id/start", middlewares.CheckUser, middlewares.RequireUser, handlers.Start)
+	r.POST("/docker/containers/:id/stop", middlewares.CheckUser, middlewares.RequireUser, handlers.Stop)
+	r.POST("/docker/containers/:id/restart", middlewares.CheckUser, middlewares.RequireUser, handlers.Restart)
+	r.DELETE("/docker/containers/:id", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.RemoveContainer)
+	r.POST("/docker/containers/:id/exec", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.ExecInContainer)
 
-	r.POST("/docker/rm/:id", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.Rm)
-	r.POST("/docker/ps", middlewares.CheckUser, middlewares.RequireUser, handlers.ContainerList)
-	r.GET("/docker/inspect/:id", middlewares.CheckUser, middlewares.RequireUser, handlers.InspectContainer)
 	r.GET("/docker/images", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.ImageList)
-	r.GET("/docker/pull", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.Pull)
-	r.DELETE("/docker/images/:id", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.RmImage)
-	r.POST("/docker/start/:id", middlewares.CheckUser, middlewares.RequireUser, handlers.Start)
-	r.POST("/docker/stop/:id", middlewares.CheckUser, middlewares.RequireUser, handlers.Stop)
-	r.POST("/docker/restart/:id", middlewares.CheckUser, middlewares.RequireUser, handlers.Restart)
-	r.GET("/docker/logs/:id", middlewares.CheckUser, middlewares.RequireUser, handlers.Logs)
+	r.GET("/docker/images/pull", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.PullImage)
+	r.DELETE("/docker/images/:id", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.RemoveImage)
+
 	r.GET("/docker/connections", handlers.GetContainerConnections)
-	r.POST("/docker/exec/:id", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.ExecInContainer)
 
 	// OAuth Routes
 	r.GET("/signin", handlers.Login)
@@ -106,12 +107,12 @@ func main() {
 	// File Routes
 	r.GET("/files", middlewares.CheckUser, middlewares.RequireUser, handlers.ListFiles)
 	r.GET("/files/content", middlewares.CheckUser, middlewares.RequireUser, handlers.ReadFile)
-	r.POST("/files/content", middlewares.CheckUser, middlewares.RequireUser, handlers.WriteFile)
-	r.POST("/files/directory", middlewares.CheckUser, middlewares.RequireUser, handlers.CreateDirectory)
-	r.DELETE("/files", middlewares.CheckUser, middlewares.RequireUser, handlers.DeletePath)
-	r.POST("/files/move", middlewares.CheckUser, middlewares.RequireUser, handlers.MovePath)
+	r.POST("/files/content", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.WriteFile)
+	r.POST("/files/directory", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.CreateDirectory)
+	r.DELETE("/files", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.DeletePath)
+	r.POST("/files/move", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.MovePath)
 	r.GET("/files/download", middlewares.CheckUser, middlewares.RequireUser, handlers.DownloadFile)
-	r.POST("/files/upload", middlewares.CheckUser, middlewares.RequireUser, handlers.UploadFile)
+	r.POST("/files/upload", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.UploadFile)
 
 	if strings.ToLower(os.Getenv("APP_ENV")) == "production" {
 		certFile := os.Getenv("SSL_CERT_FILE")

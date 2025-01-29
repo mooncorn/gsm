@@ -4,12 +4,7 @@ import FormInput from "../../../components/ui/FormInput";
 import Select from "../../../components/ui/Select";
 import Button from "../../../components/ui/Button";
 import { IoAddCircleOutline, IoRemoveCircleOutline } from "react-icons/io5";
-
-interface Port {
-  container: string;
-  host: string;
-  protocol: string;
-}
+import { Port } from "../../../hooks/useContainerTemplates";
 
 interface PortsSectionProps {
   ports: Port[];
@@ -23,7 +18,7 @@ export const PortsSection: React.FC<PortsSectionProps> = ({
   const protocolOptions = ["tcp", "udp"];
 
   const addPort = () => {
-    onChange([...ports, { container: "", host: "", protocol: "tcp" }]);
+    onChange([...ports, { containerPort: "", hostPort: "", protocol: "tcp" }]);
   };
 
   const removePort = (index: number) => {
@@ -42,13 +37,13 @@ export const PortsSection: React.FC<PortsSectionProps> = ({
         <div key={index} className="flex flex-col sm:flex-row gap-2 mb-2">
           <FormInput
             placeholder="Container Port"
-            value={port.container}
-            onChange={(e) => updatePort(index, "container", e.target.value)}
+            value={port.containerPort}
+            onChange={(e) => updatePort(index, "containerPort", e.target.value)}
           />
           <FormInput
             placeholder="Host Port"
-            value={port.host}
-            onChange={(e) => updatePort(index, "host", e.target.value)}
+            value={port.hostPort}
+            onChange={(e) => updatePort(index, "hostPort", e.target.value)}
           />
           <Select
             options={protocolOptions.map((p) => ({

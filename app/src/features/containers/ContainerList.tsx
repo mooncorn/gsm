@@ -1,13 +1,11 @@
-import axios from "axios";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiUrl } from "../../config/constants";
 import { toast } from "react-toastify";
 import Button from "../../components/ui/Button";
 import { HiOutlineRefresh } from "react-icons/hi";
 import { FaPlus } from "react-icons/fa6";
-import { ContainerListItem } from "../../types/docker";
 import PageHeader from "../../components/ui/PageHeader";
+import { api, ContainerListItem } from "../../api-client";
 
 const ContainerList = () => {
   const [containers, setContainers] = useState<ContainerListItem[]>([]);
@@ -18,18 +16,10 @@ const ContainerList = () => {
   const fetchContainers = async () => {
     try {
       setIsLoading(true);
-      const response = await axios.post(
-        `${apiUrl}/docker/ps`,
-        {
-          Options: { All: true },
-        },
-        {
-          withCredentials: true,
-        }
-      );
-      setContainers(response.data);
+      const data = await api.docker.listContainers();
+      setContainers(data);
     } catch (err: any) {
-      toast(err.response?.data?.error || "Failed to fetch containers", {
+      toast(err.message || "Failed to fetch containers", {
         type: "error",
       });
     } finally {
@@ -49,12 +39,7 @@ const ContainerList = () => {
 
   const connectToDockerEvents = () => {
     if (!dockerEventSourceRef.current) {
-      dockerEventSourceRef.current = new EventSource(
-        `${apiUrl}/docker/events`,
-        {
-          withCredentials: true,
-        }
-      );
+      dockerEventSourceRef.current = api.docker.streamDockerEvents();
 
       dockerEventSourceRef.current.onmessage = (event) => {
         const eventData = JSON.parse(event.data);
@@ -85,7 +70,7 @@ const ContainerList = () => {
   };
 
   const getContainerName = (container: ContainerListItem) => {
-    return container.Names[0].replace("/", "");
+    return container.names[0].replace("/", "");
   };
 
   const capitalizeFirstLetter = (val: string) => {
@@ -106,7 +91,7 @@ const ContainerList = () => {
   const renderContainerCards = () => {
     return containers.map((c) => (
       <div
-        key={c.Id}
+        key={c.id}
         className="bg-gray-800 rounded-lg p-4 hover:bg-gray-700 transition-colors duration-200"
       >
         <div className="flex flex-col space-y-2">
@@ -120,19 +105,19 @@ const ContainerList = () => {
             <div className="flex items-center gap-2">
               <span
                 className={`px-2 py-1 text-xs rounded whitespace-nowrap ${
-                  c.State === "running"
+                  c.state === "running"
                     ? "bg-green-900 text-green-100"
                     : "bg-red-900 text-red-100"
                 }`}
               >
-                {capitalizeFirstLetter(c.State)}
+                {capitalizeFirstLetter(c.state)}
               </span>
             </div>
           </div>
           <div className="flex flex-col space-y-1">
-            <span className="text-sm text-gray-400 break-all">{c.Image}</span>
+            <span className="text-sm text-gray-400 break-all">{c.image}</span>
             <span className="text-xs text-gray-500">
-              {cleanStatus(c.Status)}
+              {cleanStatus(c.status)}
             </span>
           </div>
         </div>

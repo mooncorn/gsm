@@ -1,15 +1,13 @@
 import { useState, useEffect, useRef } from "react";
-import axios from "axios";
-import { apiUrl } from "../../config/constants";
 import { toast, Bounce } from "react-toastify";
 import Button from "../../components/ui/Button";
 import { HiOutlineRefresh } from "react-icons/hi";
 import { FaTrash } from "react-icons/fa";
 import { useUser } from "../../UserContext";
-import { DockerImage, PullProgress } from "../../types/docker";
 import { formatBytes, formatDate } from "../../utils/format";
 import PageHeader from "../../components/ui/PageHeader";
 import FormInput from "../../components/ui/FormInput";
+import { api, DockerImage, PullProgress } from "../../api-client";
 
 const DockerImages = () => {
   const [images, setImages] = useState<DockerImage[]>([]);
@@ -23,10 +21,8 @@ const DockerImages = () => {
 
   const fetchImages = async () => {
     try {
-      const response = await axios.get(`${apiUrl}/docker/images`, {
-        withCredentials: true,
-      });
-      setImages(response.data);
+      const data = await api.docker.listImages();
+      setImages(data);
     } catch (err) {
       console.error("Failed to fetch images", err);
       toast.error("Failed to fetch images", {
@@ -59,16 +55,11 @@ const DockerImages = () => {
     }
 
     try {
-      const eventSource = new EventSource(
-        `${apiUrl}/docker/pull?imageName=${encodeURIComponent(imageName)}`,
-        { withCredentials: true }
-      );
+      eventSourceRef.current = api.docker.pullImage(imageName);
 
-      eventSourceRef.current = eventSource;
-
-      eventSource.onmessage = (event) => {
+      eventSourceRef.current.onmessage = (event) => {
         if (event.data === "[EOF]") {
-          eventSource.close();
+          eventSourceRef.current?.close();
           setIsLoading(false);
           fetchImages();
           setImageName("");
@@ -80,7 +71,7 @@ const DockerImages = () => {
 
           // Check for error messages
           if (data.error) {
-            eventSource.close();
+            eventSourceRef.current?.close();
             setIsLoading(false);
             setPullProgress({});
             toast.error(data.error, {
@@ -136,8 +127,8 @@ const DockerImages = () => {
         }
       };
 
-      eventSource.onerror = () => {
-        eventSource.close();
+      eventSourceRef.current.onerror = () => {
+        eventSourceRef.current?.close();
         setIsLoading(false);
         toast.error("Failed to pull image", {
           position: "bottom-right",
@@ -170,9 +161,7 @@ const DockerImages = () => {
 
   const deleteImage = async (id: string) => {
     try {
-      await axios.delete(`${apiUrl}/docker/images/${id}`, {
-        withCredentials: true,
-      });
+      await api.docker.removeImage(id);
       fetchImages();
       toast.success("Image deleted successfully", {
         position: "bottom-right",

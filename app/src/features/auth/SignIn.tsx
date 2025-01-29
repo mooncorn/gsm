@@ -1,10 +1,10 @@
 import React from "react";
 import { TbCubeSpark } from "react-icons/tb";
-import { apiUrl } from "../../config/constants";
+import { apiClient } from "../../api-client";
 
 const SignIn: React.FC = () => {
   const handleSignIn = () => {
-    window.location.href = `${apiUrl}/signin`;
+    window.location.href = `${apiClient.defaults.baseURL}/signin`;
   };
 
   return (

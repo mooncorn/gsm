@@ -337,8 +337,10 @@ func UploadFile(c *gin.Context) {
 		return
 	}
 
+	filePath := filepath.Join(fullPath, file.Filename)
+
 	// Save the file
-	if err := c.SaveUploadedFile(file, fullPath); err != nil {
+	if err := c.SaveUploadedFile(file, filePath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to save file: %v", err)})
 		return
 	}

@@ -6,7 +6,7 @@ export interface ContainerTemplate {
   image: string;
   containerName: string;
   volumes: string[];
-  ports: { container: string; host: string; protocol: string }[];
+  ports: Port[];
   environment: { key: string; value: string }[];
   memory: string;
   cpu: string;
@@ -16,12 +16,18 @@ export interface ContainerTemplate {
 export interface ContainerFormData {
   containerName: string;
   image: string;
-  ports: { container: string; host: string; protocol: string }[];
+  ports: Port[];
   environment: { key: string; value: string }[];
   volumes: { path: string }[];
   memory: string;
   cpu: string;
   restart: string;
+}
+
+export interface Port {
+  hostPort: string;
+  containerPort: string;
+  protocol: string;
 }
 
 export function useContainerTemplates() {
@@ -43,8 +49,8 @@ export function useContainerTemplates() {
       containerName: formData.containerName,
       volumes: formData.volumes.map((vol) => vol.path),
       ports: formData.ports.map((port) => ({
-        container: port.container,
-        host: port.host,
+        containerPort: port.containerPort,
+        hostPort: port.hostPort,
         protocol: port.protocol,
       })),
       environment: formData.environment,
@@ -98,11 +104,7 @@ export function useContainerTemplates() {
       image: formData.image,
       containerName: formData.containerName,
       volumes: formData.volumes.map((vol) => vol.path),
-      ports: formData.ports.map((port) => ({
-        container: port.container,
-        host: port.host,
-        protocol: port.protocol,
-      })),
+      ports: formData.ports,
       environment: formData.environment,
       memory: formData.memory,
       cpu: formData.cpu,
@@ -179,11 +181,7 @@ export function useContainerTemplates() {
       image: template.image,
       containerName: template.containerName,
       volumes: template.volumes.map((path) => ({ path })),
-      ports: template.ports.map((port) => ({
-        container: port.container,
-        host: port.host,
-        protocol: port.protocol,
-      })),
+      ports: template.ports,
       environment: template.environment,
       memory: template.memory,
       cpu: template.cpu,

@@ -1,6 +1,4 @@
 import React, { useState, useEffect, useCallback } from "react";
-import axios from "axios";
-import { apiUrl } from "../../config/constants";
 import { FileInfo } from "../../types/files";
 import { toast, Bounce } from "react-toastify";
 import Button from "../../components/ui/Button";
@@ -16,6 +14,7 @@ import {
 } from "react-icons/tb";
 import { formatBytes, formatDate } from "../../utils/format";
 import { IoArrowBack } from "react-icons/io5";
+import { api } from "../../api-client";
 
 // This interface is used in the type assertion for directory upload
 interface DirectoryInputProps
@@ -42,14 +41,11 @@ const Files: React.FC = () => {
   const fetchFiles = useCallback(async () => {
     try {
       setIsLoading(true);
-      const response = await axios.get(`${apiUrl}/files`, {
-        params: { path: currentPath },
-        withCredentials: true,
-      });
-      setFiles(response.data || []);
+      const data = await api.files.list(currentPath);
+      setFiles(data || []);
     } catch (err: any) {
       setFiles([]);
-      toast.error(err.response?.data?.error || "Failed to fetch files", {
+      toast.error(err.message || "Failed to fetch files", {
         position: "bottom-right",
         autoClose: 3000,
         hideProgressBar: true,
@@ -74,11 +70,8 @@ const Files: React.FC = () => {
       setCurrentPath(file.path);
     } else if (file.isReadable) {
       try {
-        const response = await axios.get(`${apiUrl}/files/content`, {
-          params: { path: file.path },
-          withCredentials: true,
-        });
-        setFileContent(response.data.content);
+        const data = await api.files.getContent(file.path);
+        setFileContent(data.content);
         setSelectedFile(file);
         setShowFileEditor(true);
       } catch (err: any) {
@@ -96,7 +89,7 @@ const Files: React.FC = () => {
             transition: Bounce,
           });
         } else {
-          toast.error(err.response?.data?.error || "Failed to read file", {
+          toast.error(err.message || "Failed to read file", {
             position: "bottom-right",
             autoClose: 3000,
             hideProgressBar: true,
@@ -121,12 +114,8 @@ const Files: React.FC = () => {
     if (!newFolderName) return;
 
     try {
-      await axios.post(
-        `${apiUrl}/files/directory`,
-        {
-          path: `${currentPath}/${newFolderName}`.replace(/^\/+/, ""),
-        },
-        { withCredentials: true }
+      await api.files.createDirectory(
+        `${currentPath}/${newFolderName}`.replace(/^\/+/, "")
       );
       setShowNewFolderDialog(false);
       setNewFolderName("");
@@ -143,7 +132,7 @@ const Files: React.FC = () => {
         transition: Bounce,
       });
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to create folder", {
+      toast.error(err.message || "Failed to create folder", {
         position: "bottom-right",
         autoClose: 3000,
         hideProgressBar: true,
@@ -161,14 +150,7 @@ const Files: React.FC = () => {
     if (!selectedFile) return;
 
     try {
-      await axios.post(
-        `${apiUrl}/files/content`,
-        {
-          path: selectedFile.path,
-          content: fileContent,
-        },
-        { withCredentials: true }
-      );
+      await api.files.write(selectedFile.path, fileContent);
       setShowFileEditor(false);
       fetchFiles();
       toast.success("File saved successfully", {
@@ -183,7 +165,7 @@ const Files: React.FC = () => {
         transition: Bounce,
       });
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to save file", {
+      toast.error(err.message || "Failed to save file", {
         position: "bottom-right",
         autoClose: 3000,
         hideProgressBar: true,
@@ -206,10 +188,7 @@ const Files: React.FC = () => {
     if (!fileToDelete) return;
 
     try {
-      await axios.delete(`${apiUrl}/files`, {
-        params: { path: fileToDelete.path },
-        withCredentials: true,
-      });
+      await api.files.delete(fileToDelete.path);
       fetchFiles();
       toast.success("Deleted successfully", {
         position: "bottom-right",
@@ -223,7 +202,7 @@ const Files: React.FC = () => {
         transition: Bounce,
       });
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to delete", {
+      toast.error(err.message || "Failed to delete", {
         position: "bottom-right",
         autoClose: 3000,
         hideProgressBar: true,
@@ -241,12 +220,37 @@ const Files: React.FC = () => {
   };
 
   const handleDownload = async (file: FileInfo) => {
+    api.files.download(file.path);
+  };
+
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
     try {
-      window.open(
-        `${apiUrl}/files/download?path=${encodeURIComponent(file.path)}`
+      const fileArray = Array.from(files);
+      for (const file of fileArray) {
+        await api.files.upload(currentPath, file);
+      }
+      fetchFiles();
+      toast.success(
+        fileArray.length > 1
+          ? "Files uploaded successfully"
+          : "File uploaded successfully",
+        {
+          position: "bottom-right",
+          autoClose: 3000,
+          hideProgressBar: true,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "colored",
+          transition: Bounce,
+        }
       );
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to download", {
+      toast.error(err.message || "Failed to upload file(s)", {
         position: "bottom-right",
         autoClose: 3000,
         hideProgressBar: true,
@@ -258,75 +262,6 @@ const Files: React.FC = () => {
         transition: Bounce,
       });
     }
-  };
-
-  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-
-    // Convert FileList to array for easier handling
-    const fileArray = Array.from(files);
-
-    for (const file of fileArray) {
-      const formData = new FormData();
-      formData.append("file", file);
-
-      // Get the relative path from the webkitRelativePath
-      let relativePath = file.webkitRelativePath || file.name;
-      // If it's a direct file upload (not in a folder), just use the filename
-      if (!file.webkitRelativePath) {
-        relativePath = file.name;
-      }
-
-      // Combine current path with relative path
-      const fullPath = `${currentPath}/${relativePath}`.replace(/^\/+/, "");
-      formData.append("path", fullPath);
-
-      try {
-        await axios.post(`${apiUrl}/files/upload`, formData, {
-          withCredentials: true,
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
-      } catch (err: any) {
-        toast.error(
-          `Failed to upload ${relativePath}: ${
-            err.response?.data?.error || "Unknown error"
-          }`,
-          {
-            position: "bottom-right",
-            autoClose: 3000,
-            hideProgressBar: true,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-            progress: undefined,
-            theme: "colored",
-            transition: Bounce,
-          }
-        );
-        return; // Stop on first error
-      }
-    }
-
-    fetchFiles();
-    toast.success(
-      fileArray.length > 1
-        ? "Files uploaded successfully"
-        : "File uploaded successfully",
-      {
-        position: "bottom-right",
-        autoClose: 3000,
-        hideProgressBar: true,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-        theme: "colored",
-        transition: Bounce,
-      }
-    );
   };
 
   if (showFileEditor && selectedFile) {

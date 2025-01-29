@@ -1,16 +1,13 @@
 import { useEffect, useState, useRef } from "react";
-import axios from "axios";
 import Button from "../../components/ui/Button";
 import TabPanel from "../../components/ui/TabPanel";
-import { apiUrl } from "../../config/constants";
 import { Bounce, toast } from "react-toastify";
 import { IoPower, IoTrash } from "react-icons/io5";
 import { useUser } from "../../UserContext";
 import { useParams, useNavigate } from "react-router-dom";
-import { TbArrowLeft } from "react-icons/tb";
-import { ContainerDetails } from "../../types/docker";
 import { formatDate } from "../../utils/format";
 import PageHeader from "../../components/ui/PageHeader";
+import { api, ContainerDetails } from "../../api-client";
 
 const Container = () => {
   const { id } = useParams();
@@ -28,10 +25,9 @@ const Container = () => {
 
   const fetchContainerDetails = async () => {
     try {
-      const response = await axios.get(`${apiUrl}/docker/inspect/${id}`, {
-        withCredentials: true,
-      });
-      setContainer(response.data);
+      if (!id) return;
+      const data = await api.docker.getContainer(id);
+      setContainer(data);
     } catch (err) {
       console.error("Failed to fetch container details", err);
       toast.error(`Failed to get details for ${id}`, {
@@ -50,18 +46,9 @@ const Container = () => {
 
   const fetchLogs = async () => {
     try {
-      const response = await axios.get(`${apiUrl}/docker/logs/${id}`, {
-        withCredentials: true,
-      });
-      // Ensure we always have an array of strings
-      const logData = response.data;
-      if (typeof logData === "string") {
-        setLogs(logData.split("\n"));
-      } else if (Array.isArray(logData)) {
-        setLogs(logData);
-      } else {
-        setLogs([]);
-      }
+      if (!id) return;
+      const data = await api.docker.getLogs(id);
+      setLogs(data.split("\n"));
     } catch (err) {
       console.error("Failed to fetch logs", err);
       toast.error(`Failed to get logs for ${id}`, {
@@ -79,13 +66,8 @@ const Container = () => {
   };
 
   const connectToLogStream = () => {
-    if (!logEventSourceRef.current) {
-      logEventSourceRef.current = new EventSource(
-        `${apiUrl}/docker/logs/${id}/stream`,
-        {
-          withCredentials: true,
-        }
-      );
+    if (!logEventSourceRef.current && id) {
+      logEventSourceRef.current = api.docker.streamContainerLogs(id);
 
       logEventSourceRef.current.onmessage = (event) => {
         setLogs((prevLogs) => {
@@ -111,14 +93,7 @@ const Container = () => {
 
   const connectToDockerEvents = () => {
     if (!dockerEventSourceRef.current) {
-      const eventSourceInit: EventSourceInit = {
-        withCredentials: true,
-      };
-
-      dockerEventSourceRef.current = new EventSource(
-        `${apiUrl}/docker/events`,
-        eventSourceInit
-      );
+      dockerEventSourceRef.current = api.docker.streamDockerEvents();
 
       dockerEventSourceRef.current.onmessage = (event) => {
         const eventData = JSON.parse(event.data);
@@ -174,12 +149,9 @@ const Container = () => {
 
   const start = async () => {
     try {
+      if (!id) return;
       setIsLoading(true);
-      await axios.post(
-        `${apiUrl}/docker/start/${id}`,
-        {},
-        { withCredentials: true }
-      );
+      await api.docker.startContainer(id);
     } catch (err) {
       console.error("Start failed", err);
       toast.error(`Failed to start ${id}`, {
@@ -199,7 +171,7 @@ const Container = () => {
   };
 
   useEffect(() => {
-    if (container?.State.Running) {
+    if (container?.state.running) {
       connectToLogStream();
     } else {
       disconnectLogStream();
@@ -208,12 +180,9 @@ const Container = () => {
 
   const stop = async () => {
     try {
+      if (!id) return;
       setIsLoading(true);
-      await axios.post(
-        `${apiUrl}/docker/stop/${id}`,
-        {},
-        { withCredentials: true }
-      );
+      await api.docker.stopContainer(id);
     } catch (err) {
       console.error(`Failed to stop ${id}`, err);
       toast.error(`Failed to stop ${id}`, {
@@ -233,17 +202,12 @@ const Container = () => {
   };
 
   const executeCommand = async () => {
-    if (!command.trim()) return;
+    if (!command.trim() || !id) return;
 
     try {
-      const response = await axios.post(
-        `${apiUrl}/docker/exec/${id}`,
-        { command },
-        { withCredentials: true }
-      );
-
+      const response = await api.docker.executeCommand(id, command);
       // Add the command and its output to the logs
-      setLogs((prev) => [...prev, response.data.output]);
+      setLogs((prev) => [...prev, response.output]);
       setCommand(""); // Clear the input
 
       // Scroll to bottom
@@ -251,8 +215,9 @@ const Container = () => {
         logContainerRef.current.scrollTop =
           logContainerRef.current.scrollHeight;
       }
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to execute command", {
+    } catch (err) {
+      console.error("Failed to execute command", err);
+      toast.error("Failed to execute command", {
         position: "bottom-right",
         autoClose: 3000,
         hideProgressBar: true,
@@ -272,12 +237,9 @@ const Container = () => {
 
   const deleteContainer = async () => {
     try {
+      if (!id) return;
       setIsLoading(true);
-      await axios.post(
-        `${apiUrl}/docker/rm/${id}`,
-        {},
-        { withCredentials: true }
-      );
+      await api.docker.removeContainer(id);
       toast.success("Container deleted successfully", {
         position: "bottom-right",
         autoClose: 3000,
@@ -290,9 +252,9 @@ const Container = () => {
         transition: Bounce,
       });
       navigate("/containers");
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to delete container", err);
-      toast.error(err.response?.data?.error || "Failed to delete container", {
+      toast.error(`Failed to delete ${id}`, {
         position: "bottom-right",
         autoClose: 3000,
         hideProgressBar: true,
@@ -312,12 +274,12 @@ const Container = () => {
   return (
     <div className="space-y-4">
       <PageHeader
-        title={(container?.Name || id || "Container").toString()}
+        title={(container?.name || id || "Container").toString()}
         showBackButton
         backTo="/containers"
         actions={
           <div className="flex gap-2">
-            {!container?.State.Running && (
+            {!container?.state.running && (
               <Button
                 onClick={() => setShowDeleteConfirmation(true)}
                 className="bg-red-800 hover:bg-red-600 px-4 py-2 flex items-center space-x-2"
@@ -326,9 +288,9 @@ const Container = () => {
               />
             )}
             <Button
-              onClick={container?.State.Running ? stop : start}
+              onClick={container?.state.running ? stop : start}
               className={`${
-                container?.State.Running
+                container?.state.running
                   ? "bg-red-800 hover:bg-red-600"
                   : "bg-green-800 hover:bg-green-600"
               } px-4 py-2 flex items-center space-x-2`}
@@ -344,24 +306,24 @@ const Container = () => {
           <div className="flex items-center space-x-2">
             <span
               className={`px-2 py-1 text-xs rounded whitespace-nowrap ${
-                container?.State.Running
+                container?.state.running
                   ? "bg-green-900 text-green-100"
                   : "bg-red-900 text-red-100"
               }`}
             >
-              {capitalizeFirstLetter(container?.State.Status || "unknown")}
+              {capitalizeFirstLetter(container?.state.status || "unknown")}
             </span>
           </div>
           <div className="flex flex-col space-y-1">
             <span className="text-sm text-gray-400">
-              {container?.Config.Image}
+              {container?.config.image}
             </span>
             <span className="text-xs text-gray-500">
-              {container?.State.Running
-                ? `Started ${formatDate(new Date(container?.State.StartedAt))}`
+              {container?.state.running
+                ? `Started ${formatDate(new Date(container?.state.startedAt))}`
                 : `Stopped ${
-                    container?.State.FinishedAt
-                      ? formatDate(new Date(container?.State.FinishedAt))
+                    container?.state.finishedAt
+                      ? formatDate(new Date(container?.state.finishedAt))
                       : ""
                   }`}
             </span>
@@ -411,7 +373,7 @@ const Container = () => {
             ))}
           </div>
 
-          {user?.role === "admin" && container?.State.Running && (
+          {user?.role === "admin" && container?.state.running && (
             <div className="mt-4 flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
@@ -439,40 +401,29 @@ const Container = () => {
                 <tr>
                   <td className="px-2 sm:px-3 py-2 sm:py-3">Status</td>
                   <td className="px-2 sm:px-3 py-2 sm:py-3">
-                    {container?.State.Status}
+                    {container?.state.status}
                   </td>
                 </tr>
                 <tr>
                   <td className="px-2 sm:px-3 py-2 sm:py-3">Running</td>
                   <td className="px-2 sm:px-3 py-2 sm:py-3">
-                    {container?.State.Running ? "true" : "false"}
+                    {container?.state.running ? "true" : "false"}
                   </td>
                 </tr>
-                <tr>
-                  <td className="px-2 sm:px-3 py-2 sm:py-3">Paused</td>
-                  <td className="px-2 sm:px-3 py-2 sm:py-3">
-                    {container?.State.Paused ? "true" : "false"}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="px-2 sm:px-3 py-2 sm:py-3">Restarting</td>
-                  <td className="px-2 sm:px-3 py-2 sm:py-3">
-                    {container?.State.Restarting ? "true" : "false"}
-                  </td>
-                </tr>
+
                 <tr>
                   <td className="px-2 sm:px-3 py-2 sm:py-3">Started At</td>
                   <td className="px-2 sm:px-3 py-2 sm:py-3">
-                    {container?.State.StartedAt
-                      ? formatDate(new Date(container?.State.StartedAt))
+                    {container?.state.startedAt
+                      ? formatDate(new Date(container?.state.startedAt))
                       : ""}
                   </td>
                 </tr>
                 <tr>
                   <td className="px-2 sm:px-3 py-2 sm:py-3">Finished At</td>
                   <td className="px-2 sm:px-3 py-2 sm:py-3">
-                    {container?.State.FinishedAt
-                      ? formatDate(new Date(container?.State.FinishedAt))
+                    {container?.state.finishedAt
+                      ? formatDate(new Date(container?.state.finishedAt))
                       : ""}
                   </td>
                 </tr>
@@ -488,25 +439,21 @@ const Container = () => {
               <thead className="border-b border-gray-700">
                 <tr className="font-semibold">
                   <td className="px-2 sm:px-3 py-2 sm:py-3">Container Port</td>
-                  <td className="px-2 sm:px-3 py-2 sm:py-3">Host IP</td>
+
                   <td className="px-2 sm:px-3 py-2 sm:py-3">Host Port</td>
                 </tr>
               </thead>
               <tbody>
-                {container?.HostConfig.PortBindings &&
-                  Object.entries(container.HostConfig.PortBindings).map(
+                {container?.hostConfig.portBindings &&
+                  Object.entries(container.hostConfig.portBindings).map(
                     ([containerPort, hostPorts]) => (
                       <tr key={containerPort}>
                         <td className="px-2 sm:px-3 py-2 sm:py-3">
                           {containerPort}
                         </td>
+
                         <td className="px-2 sm:px-3 py-2 sm:py-3">
-                          {hostPorts.map(
-                            (hostPort) => hostPort.HostIp || "0.0.0.0"
-                          )}
-                        </td>
-                        <td className="px-2 sm:px-3 py-2 sm:py-3">
-                          {hostPorts.map((hostPort) => hostPort.HostPort)}
+                          {hostPorts.map((hostPort) => hostPort.hostPort)}
                         </td>
                       </tr>
                     )
@@ -527,14 +474,14 @@ const Container = () => {
                 </tr>
               </thead>
               <tbody>
-                {container?.Mounts &&
-                  container.Mounts.map((mount) => (
-                    <tr key={mount.Source}>
+                {container?.mounts &&
+                  container.mounts.map((mount) => (
+                    <tr key={mount.source}>
                       <td className="px-2 sm:px-3 py-2 sm:py-3 break-all">
-                        {mount.Source}
+                        {mount.source}
                       </td>
                       <td className="px-2 sm:px-3 py-2 sm:py-3 break-all">
-                        {mount.Destination}
+                        {mount.target}
                       </td>
                     </tr>
                   ))}
@@ -554,8 +501,8 @@ const Container = () => {
                 </tr>
               </thead>
               <tbody>
-                {container?.Config.Env &&
-                  container.Config.Env.map((env) => {
+                {container?.config.env &&
+                  container.config.env.map((env) => {
                     const [key, value] = env.split("=");
                     return (
                       <tr key={env}>
@@ -581,7 +528,7 @@ const Container = () => {
             <h2 className="text-xl font-bold mb-4">Confirm Delete</h2>
             <p className="mb-6">
               Are you sure you want to delete container{" "}
-              <span className="font-semibold">{container?.Name || id}</span>?
+              <span className="font-semibold">{container?.name || id}</span>?
             </p>
             <div className="flex justify-end gap-2">
               <Button

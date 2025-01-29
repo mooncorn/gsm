@@ -8,62 +8,86 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/docker/go-connections/nat"
 	"github.com/gin-gonic/gin"
-	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-type RunRequest struct {
-	ContainerName string
-	Config        container.Config
-	HostConfig    container.HostConfig
-	NetworkConfig network.NetworkingConfig
-	platform      *v1.Platform
-}
-
-type RmRequest struct {
-	Options container.RemoveOptions
-}
-
-type PullRequest struct {
-	ImageName string
-	Options   image.PullOptions
-}
-
-type ContainerListRequest struct {
-	Options container.ListOptions
-}
-
-type ImageListRequest struct {
-	Options image.ListOptions
-}
-
-type StartRequest struct {
-	Options container.StartOptions
-}
-
-type StopRequest struct {
-	Options container.StopOptions
-}
-
-type LogsRequest struct {
-	Options container.LogsOptions
-}
-
-type EventsRequest struct {
-	Options events.ListOptions
-}
-
-type ExecRequest struct {
+type ContainerExecRequest struct {
 	Command string `json:"command"`
+}
+
+type ContainerExecResponse struct {
+	Output string `json:"output"`
+}
+
+type ContainerListItem struct {
+	ID     string   `json:"id"`
+	Names  []string `json:"names"`
+	Image  string   `json:"image"`
+	State  string   `json:"state"`
+	Status string   `json:"status"`
+}
+
+type InspectContainerResponse struct {
+	ID         string              `json:"id"`
+	Created    time.Time           `json:"created"`
+	State      ContainerState      `json:"state"`
+	Name       string              `json:"name"`
+	Mounts     []Mount             `json:"mounts"`
+	Config     ContainerConfig     `json:"config"`
+	HostConfig ContainerHostConfig `json:"hostConfig"`
+}
+
+type Mount struct {
+	Type     string `json:"type"`
+	Source   string `json:"source"`
+	Target   string `json:"target"`
+	ReadOnly bool   `json:"readOnly"`
+}
+
+type ContainerState struct {
+	Status     string    `json:"status"`
+	Running    bool      `json:"running"`
+	StartedAt  time.Time `json:"startedAt"`
+	FinishedAt time.Time `json:"finishedAt"`
+}
+
+type ContainerConfig struct {
+	Image        string              `json:"image"`
+	Env          []string            `json:"env"`
+	Tty          bool                `json:"tty"`
+	AttachStdin  bool                `json:"attachStdin"`
+	AttachStdout bool                `json:"attachStdout"`
+	AttachStderr bool                `json:"attachStderr"`
+	ExposedPorts map[string]struct{} `json:"exposedPorts"`
+	Volumes      map[string]struct{} `json:"volumes"`
+}
+
+type ContainerHostConfig struct {
+	PortBindings  map[string][]ContainerPortBinding `json:"portBindings"`
+	Binds         []string                          `json:"binds"`
+	Memory        int64                             `json:"memory" binding:"gte=0"`
+	CPU           float64                           `json:"cpu" binding:"gte=0"`
+	RestartPolicy ContainerRestartPolicy            `json:"restartPolicy"`
+}
+
+type ContainerResources struct {
+	Memory int64   `json:"memory" binding:"gte=0"`
+	CPU    float64 `json:"cpu" binding:"gte=0"`
+}
+
+type ContainerPortBinding struct {
+	HostPort      uint16 `json:"hostPort" binding:"required,gt=0"`
+	ContainerPort uint16 `json:"containerPort" binding:"required,gt=0"`
+	Protocol      string `json:"protocol" binding:"oneof=tcp udp"`
 }
 
 type ContainerCreateRequest struct {
@@ -76,6 +100,10 @@ type ContainerCreateRequest struct {
 	Command []string      `json:"command"`
 	Restart string        `json:"restart" binding:"oneof=no on-failure always unless-stopped"`
 	Volumes []string      `json:"volumes"`
+}
+
+type ContainerRestartPolicy struct {
+	Name string `json:"name" binding:"required,oneof=no on-failure always unless-stopped"`
 }
 
 type PortMapping struct {
@@ -136,8 +164,10 @@ func (r *ContainerCreateRequest) ToDockerConfig() (*container.Config, *container
 		PortBindings: portBindings,
 		Binds:        binds,
 		Resources: container.Resources{
-			Memory:   r.Memory,
-			NanoCPUs: int64(r.CPU * 1e9), // Convert CPU cores to nano CPUs
+			// Memory is in MB, convert to bytes
+			Memory: r.Memory * 1024 * 1024,
+			// CPU is in cores, convert to nano CPUs
+			NanoCPUs: int64(r.CPU * 1e9),
 		},
 	}
 
@@ -152,25 +182,31 @@ func (r *ContainerCreateRequest) ToDockerConfig() (*container.Config, *container
 }
 
 func ContainerList(c *gin.Context) {
-	var req ContainerListRequest
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "invalid request"})
-		return
-	}
-
 	docker, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		c.JSON(500, gin.H{"error": fmt.Sprintf("failed to create docker client: %v", err)})
 		return
 	}
 
-	list, err := docker.ContainerList(c, req.Options)
+	list, err := docker.ContainerList(c, container.ListOptions{All: true})
 	if err != nil {
 		c.JSON(400, gin.H{"error": fmt.Sprintf("failed to list containers: %v", err)})
 		return
 	}
 
-	c.JSON(200, list)
+	// Map containers to ContainerListItem
+	containers := make([]ContainerListItem, len(list))
+	for i, container := range list {
+		containers[i] = ContainerListItem{
+			ID:     container.ID,
+			Names:  container.Names,
+			Image:  container.Image,
+			State:  container.State,
+			Status: container.Status,
+		}
+	}
+
+	c.JSON(200, containers)
 }
 
 func InspectContainer(c *gin.Context) {
@@ -188,7 +224,79 @@ func InspectContainer(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, inspect)
+	created, err := time.Parse(time.RFC3339, inspect.Created)
+	if err != nil {
+		c.JSON(400, gin.H{"error": fmt.Sprintf("failed to parse created time: %v", err)})
+		return
+	}
+
+	mounts := make([]Mount, len(inspect.Mounts))
+	for i, mount := range inspect.Mounts {
+		mounts[i] = Mount{
+			Type:     string(mount.Type),
+			Source:   mount.Source,
+			Target:   mount.Destination,
+			ReadOnly: mount.RW,
+		}
+	}
+
+	startedAt, err := time.Parse(time.RFC3339, inspect.State.StartedAt)
+	if err != nil {
+		c.JSON(400, gin.H{"error": fmt.Sprintf("failed to parse startedAt time: %v", err)})
+		return
+	}
+
+	finishedAt, err := time.Parse(time.RFC3339, inspect.State.FinishedAt)
+	if err != nil {
+		c.JSON(400, gin.H{"error": fmt.Sprintf("failed to parse finishedAt time: %v", err)})
+		return
+	}
+
+	portBindings := make(map[string][]ContainerPortBinding)
+	for port, bindings := range inspect.HostConfig.PortBindings {
+		for _, binding := range bindings {
+			hostPort, _ := strconv.ParseUint(binding.HostPort, 10, 16)
+			portBindings[string(port)] = append(portBindings[string(port)], ContainerPortBinding{
+				HostPort:      uint16(hostPort),
+				ContainerPort: uint16(hostPort),
+				Protocol:      strings.Split(string(port), "/")[1],
+			})
+		}
+	}
+
+	restartPolicy := ContainerRestartPolicy{Name: string(inspect.HostConfig.RestartPolicy.Name)}
+
+	hostConfig := ContainerHostConfig{
+		PortBindings:  portBindings,
+		Binds:         inspect.HostConfig.Binds,
+		Memory:        inspect.HostConfig.Resources.Memory / 1024 / 1024,
+		CPU:           float64(inspect.HostConfig.Resources.NanoCPUs) / 1e9,
+		RestartPolicy: restartPolicy,
+	}
+
+	config := ContainerConfig{
+		Image:        inspect.Config.Image,
+		Env:          inspect.Config.Env,
+		Tty:          inspect.Config.Tty,
+		AttachStdin:  inspect.Config.AttachStdin,
+		AttachStdout: inspect.Config.AttachStdout,
+		AttachStderr: inspect.Config.AttachStderr,
+	}
+
+	c.JSON(200, InspectContainerResponse{
+		ID:      inspect.ID,
+		Created: created,
+		State: ContainerState{
+			Status:     inspect.State.Status,
+			Running:    inspect.State.Running,
+			StartedAt:  startedAt,
+			FinishedAt: finishedAt,
+		},
+		Name:       inspect.Name,
+		Mounts:     mounts,
+		Config:     config,
+		HostConfig: hostConfig,
+	})
 }
 
 func ImageList(c *gin.Context) {
@@ -239,14 +347,8 @@ func ContainerCreate(c *gin.Context) {
 	})
 }
 
-func Rm(c *gin.Context) {
+func RemoveContainer(c *gin.Context) {
 	id := c.Param("id")
-
-	var req RmRequest
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "invalid request"})
-		return
-	}
 
 	docker, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -254,7 +356,7 @@ func Rm(c *gin.Context) {
 		return
 	}
 
-	err = docker.ContainerRemove(c, id, req.Options)
+	err = docker.ContainerRemove(c, id, container.RemoveOptions{RemoveVolumes: false})
 	if err != nil {
 		c.JSON(400, gin.H{"error": fmt.Sprintf("failed to remove container: %v", err)})
 		return
@@ -263,7 +365,7 @@ func Rm(c *gin.Context) {
 	c.Status(200)
 }
 
-func Pull(c *gin.Context) {
+func PullImage(c *gin.Context) {
 	imageName := c.Query("imageName")
 	if imageName == "" {
 		c.JSON(400, gin.H{"error": "image name is required"})
@@ -333,19 +435,13 @@ func Pull(c *gin.Context) {
 func Start(c *gin.Context) {
 	id := c.Param("id")
 
-	var req StartRequest
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "invalid request"})
-		return
-	}
-
 	docker, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		c.JSON(500, gin.H{"error": fmt.Sprintf("failed to create docker client: %v", err)})
 		return
 	}
 
-	err = docker.ContainerStart(c, id, req.Options)
+	err = docker.ContainerStart(c, id, container.StartOptions{})
 	if err != nil {
 		c.JSON(400, gin.H{"error": fmt.Sprintf("failed to start container: %v", err)})
 		return
@@ -357,19 +453,13 @@ func Start(c *gin.Context) {
 func Stop(c *gin.Context) {
 	id := c.Param("id")
 
-	var req StopRequest
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "invalid request"})
-		return
-	}
-
 	docker, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		c.JSON(500, gin.H{"error": fmt.Sprintf("failed to create docker client: %v", err)})
 		return
 	}
 
-	err = docker.ContainerStop(c, id, req.Options)
+	err = docker.ContainerStop(c, id, container.StopOptions{})
 	if err != nil {
 		c.JSON(400, gin.H{"error": fmt.Sprintf("failed to stop container: %v", err)})
 		return
@@ -381,19 +471,13 @@ func Stop(c *gin.Context) {
 func Restart(c *gin.Context) {
 	id := c.Param("id")
 
-	var req StopRequest
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "invalid request"})
-		return
-	}
-
 	docker, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		c.JSON(500, gin.H{"error": fmt.Sprintf("failed to create docker client: %v", err)})
 		return
 	}
 
-	err = docker.ContainerRestart(c, id, req.Options)
+	err = docker.ContainerRestart(c, id, container.StopOptions{})
 	if err != nil {
 		c.JSON(400, gin.H{"error": fmt.Sprintf("failed to restart container: %v", err)})
 		return
@@ -644,7 +728,7 @@ func execCommandInContainer(c *gin.Context, cli *client.Client, containerID, cmd
 
 func ExecInContainer(c *gin.Context) {
 	containerID := c.Param("id")
-	var req ExecRequest
+	var req ContainerExecRequest
 	if err := c.BindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": "invalid request"})
 		return
@@ -666,10 +750,10 @@ func ExecInContainer(c *gin.Context) {
 		output = output[8:]
 	}
 
-	c.JSON(200, gin.H{"output": output})
+	c.JSON(200, ContainerExecResponse{Output: output})
 }
 
-func RmImage(c *gin.Context) {
+func RemoveImage(c *gin.Context) {
 	id := c.Param("id")
 
 	docker, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())

@@ -1,6 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import axios from "axios";
-import { apiUrl } from "../../config/constants";
 import { toast, Bounce } from "react-toastify";
 import Button from "../../components/ui/Button";
 import Modal from "../../components/ui/Modal";
@@ -8,12 +6,11 @@ import FormInput from "../../components/ui/FormInput";
 import Select from "../../components/ui/Select";
 import FormSection from "../../components/ui/FormSection";
 import { useNavigate } from "react-router-dom";
-import { TbArrowLeft } from "react-icons/tb";
 import {
   useContainerTemplates,
   ContainerFormData,
 } from "../../hooks/useContainerTemplates";
-import { DockerImage, SystemResources } from "./types";
+import { SystemResources } from "./types";
 import { PortsSection } from "./components/PortsSection";
 import { EnvironmentSection } from "./components/EnvironmentSection";
 import { VolumesSection } from "./components/VolumesSection";
@@ -21,13 +18,19 @@ import { ResourceLimitsSection } from "./components/ResourceLimitsSection";
 import PageHeader from "../../components/ui/PageHeader";
 import TemplateControls from "../../components/ui/TemplateControls";
 import SearchDropdown from "../../components/ui/SearchDropdown";
+import {
+  api,
+  apiClient,
+  CreateContainerRequest,
+  DockerImage,
+} from "../../api-client";
 
 const CreateContainer = () => {
   const navigate = useNavigate();
   const [formData, setFormData] = useState<ContainerFormData>({
     containerName: "",
     image: "",
-    ports: [{ container: "", host: "", protocol: "tcp" }],
+    ports: [{ containerPort: "", hostPort: "", protocol: "tcp" }],
     environment: [{ key: "", value: "" }],
     volumes: [{ path: "" }],
     memory: "",
@@ -64,10 +67,8 @@ const CreateContainer = () => {
   useEffect(() => {
     const fetchImages = async () => {
       try {
-        const response = await axios.get(`${apiUrl}/docker/images`, {
-          withCredentials: true,
-        });
-        setImages(response.data);
+        const data = await api.docker.listImages();
+        setImages(data);
       } catch (err) {
         console.error("Failed to fetch images", err);
       }
@@ -77,9 +78,12 @@ const CreateContainer = () => {
 
   // Listen to system resources SSE
   useEffect(() => {
-    const eventSource = new EventSource(`${apiUrl}/system/resources/stream`, {
-      withCredentials: true,
-    });
+    const eventSource = new EventSource(
+      `${apiClient.defaults.baseURL}/system/resources/stream`,
+      {
+        withCredentials: true,
+      }
+    );
 
     eventSource.onmessage = (event) => {
       try {
@@ -189,14 +193,14 @@ const CreateContainer = () => {
       }
 
       // Format the data according to the new ContainerCreateRequest structure
-      const requestData = {
+      const requestData: CreateContainerRequest = {
         name: formData.containerName,
         image: formData.image,
         ports: formData.ports
-          .filter((port) => port.container && port.host)
+          .filter((port) => port.containerPort && port.hostPort)
           .map((port) => ({
-            hostPort: parseInt(port.host),
-            containerPort: parseInt(port.container),
+            hostPort: parseInt(port.hostPort),
+            containerPort: parseInt(port.containerPort),
             protocol: port.protocol,
           })),
         env: formData.environment
@@ -204,17 +208,13 @@ const CreateContainer = () => {
           .map((env) => `${env.key}=${env.value}`),
         volumes: formData.volumes
           .filter((vol) => vol.path)
-          .map((vol) => vol.path.replace(/^\/|\/$/g, "")),
-        memory: formData.memory
-          ? Math.floor(parseFloat(formData.memory) * 1024 * 1024)
-          : 0, // Convert MB to bytes
+          .map((vol) => vol.path),
+        memory: formData.memory ? parseInt(formData.memory) : 0,
         cpu: formData.cpu ? parseFloat(formData.cpu) : 0,
         restart: formData.restart,
       };
 
-      await axios.post(`${apiUrl}/docker/containers`, requestData, {
-        withCredentials: true,
-      });
+      await api.docker.createContainer(requestData);
 
       toast.success("Container created successfully", {
         position: "bottom-right",
@@ -230,7 +230,7 @@ const CreateContainer = () => {
 
       navigate("/containers");
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to create container", {
+      toast.error(err.message || "Failed to create container", {
         position: "bottom-right",
         autoClose: 3000,
         hideProgressBar: true,

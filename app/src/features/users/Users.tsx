@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
 import { Bounce, toast } from "react-toastify";
-import axios from "axios";
-import { apiUrl } from "../../config/constants";
 import { formatDate } from "../../utils/format";
 import Button from "../../components/ui/Button";
 import { HiOutlineRefresh } from "react-icons/hi";
@@ -9,14 +7,8 @@ import { FaTrash } from "react-icons/fa";
 import PageHeader from "../../components/ui/PageHeader";
 import FormInput from "../../components/ui/FormInput";
 import Select from "../../components/ui/Select";
-
-interface AllowedUser {
-  Id: number;
-  email: string;
-  role: string;
-  CreatedAt: string;
-  UpdatedAt: string;
-}
+import { api } from "../../api-client";
+import { AllowedUser } from "../../api-client/types";
 
 const Users = () => {
   const [users, setUsers] = useState<AllowedUser[]>([]);
@@ -26,12 +18,10 @@ const Users = () => {
 
   const fetchUsers = async () => {
     try {
-      const response = await axios.get(`${apiUrl}/users/allowed`, {
-        withCredentials: true,
-      });
-      setUsers(response.data);
+      const data = await api.auth.getAllowedUsers();
+      setUsers(data);
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to load users", {
+      toast.error(err.message || "Failed to load users", {
         position: "bottom-right",
         autoClose: 3000,
         hideProgressBar: true,
@@ -56,11 +46,7 @@ const Users = () => {
 
     setLoading(true);
     try {
-      await axios.post(
-        `${apiUrl}/users/allowed`,
-        { email, role },
-        { withCredentials: true }
-      );
+      await api.auth.addAllowedUser(email, role);
 
       toast.success("User added successfully", {
         position: "bottom-right",
@@ -76,7 +62,7 @@ const Users = () => {
       setEmail("");
       fetchUsers();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to add user", {
+      toast.error(err.message || "Failed to add user", {
         position: "bottom-right",
         autoClose: 3000,
         hideProgressBar: true,
@@ -95,10 +81,7 @@ const Users = () => {
 
   const handleRemove = async (email: string) => {
     try {
-      await axios.delete(
-        `${apiUrl}/users/allowed/${encodeURIComponent(email)}`,
-        { withCredentials: true }
-      );
+      await api.auth.removeAllowedUser(email);
 
       toast.success("User removed successfully", {
         position: "bottom-right",
@@ -113,7 +96,7 @@ const Users = () => {
       });
       fetchUsers();
     } catch (err: any) {
-      toast.error(err.response?.data?.error || "Failed to remove user", {
+      toast.error(err.message || "Failed to remove user", {
         position: "bottom-right",
         autoClose: 3000,
         hideProgressBar: true,
