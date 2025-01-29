@@ -246,6 +246,20 @@ const CreateContainer = () => {
 
   const handleTemplateSelect = (value: string) => {
     setSelectedTemplate(value);
+    if (!value) {
+      // Clear form when no template is selected
+      setFormData({
+        containerName: "",
+        image: "",
+        ports: [{ containerPort: "", hostPort: "", protocol: "tcp" }],
+        environment: [{ key: "", value: "" }],
+        volumes: [{ path: "" }],
+        memory: "",
+        cpu: "",
+        restart: "no",
+      });
+      return;
+    }
     const loadedData = loadTemplate(value);
     if (loadedData) {
       setFormData(loadedData);

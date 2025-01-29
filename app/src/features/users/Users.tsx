@@ -126,29 +126,36 @@ const Users = () => {
         }
       />
 
-      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2">
-        <FormInput
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Email"
-          className="flex-1"
-          required
-        />
-        <Select
-          options={[
-            { value: "user", label: "User" },
-            { value: "admin", label: "Admin" },
-            { value: "mod", label: "Moderator" },
-          ]}
-          value={role}
-          onChange={(value) => setRole(value)}
-          className="w-full sm:w-auto"
-        />
-        <Button type="submit" disabled={loading || !email}>
-          Add
-        </Button>
-      </form>
+      <div className="w-full">
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col sm:flex-row gap-2"
+        >
+          <div className="flex-grow">
+            <FormInput
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email"
+              className="flex"
+              required
+            />
+          </div>
+          <Select
+            options={[
+              { value: "user", label: "User" },
+              { value: "admin", label: "Admin" },
+              { value: "mod", label: "Moderator" },
+            ]}
+            value={role}
+            onChange={(value) => setRole(value)}
+            className="w-full sm:w-auto"
+          />
+          <Button type="submit" disabled={loading || !email}>
+            Add
+          </Button>
+        </form>
+      </div>
 
       {users.length === 0 ? (
         <div className="text-center py-8 text-gray-400">No users found</div>

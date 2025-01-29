@@ -274,10 +274,42 @@ const Container = () => {
   return (
     <div className="space-y-4">
       <PageHeader
-        title={(container?.name || id || "Container").toString()}
+        title={container?.name.replace("/", "") || ""}
         showBackButton
         backTo="/containers"
-        actions={
+      />
+
+      <div className="flex flex-col h-full w-full">
+        <div className="flex flex-row justify-between items-center space-y-2">
+          <div className="flex flex-col space-y-2">
+            <div className="flex items-center space-x-2">
+              <span
+                className={`px-2 py-1 text-xs rounded whitespace-nowrap ${
+                  container?.state.running
+                    ? "bg-green-900 text-green-100"
+                    : "bg-red-900 text-red-100"
+                }`}
+              >
+                {capitalizeFirstLetter(container?.state.status || "unknown")}
+              </span>
+            </div>
+            <div className="flex flex-col space-y-1">
+              <span className="text-sm text-gray-400">
+                {container?.config.image}
+              </span>
+              <span className="text-xs text-gray-500">
+                {container?.state.running
+                  ? `Started ${formatDate(
+                      new Date(container?.state.startedAt)
+                    )}`
+                  : `Stopped ${
+                      container?.state.finishedAt
+                        ? formatDate(new Date(container?.state.finishedAt))
+                        : ""
+                    }`}
+              </span>
+            </div>
+          </div>
           <div className="flex gap-2">
             {!container?.state.running && (
               <Button
@@ -297,36 +329,6 @@ const Container = () => {
               disabled={isLoading}
               icon={<IoPower className={isLoading ? "opacity-50" : ""} />}
             />
-          </div>
-        }
-      />
-
-      <div className="flex flex-col h-full w-full">
-        <div className="flex flex-col space-y-2">
-          <div className="flex items-center space-x-2">
-            <span
-              className={`px-2 py-1 text-xs rounded whitespace-nowrap ${
-                container?.state.running
-                  ? "bg-green-900 text-green-100"
-                  : "bg-red-900 text-red-100"
-              }`}
-            >
-              {capitalizeFirstLetter(container?.state.status || "unknown")}
-            </span>
-          </div>
-          <div className="flex flex-col space-y-1">
-            <span className="text-sm text-gray-400">
-              {container?.config.image}
-            </span>
-            <span className="text-xs text-gray-500">
-              {container?.state.running
-                ? `Started ${formatDate(new Date(container?.state.startedAt))}`
-                : `Stopped ${
-                    container?.state.finishedAt
-                      ? formatDate(new Date(container?.state.finishedAt))
-                      : ""
-                  }`}
-            </span>
           </div>
         </div>
 

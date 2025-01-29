@@ -253,19 +253,25 @@ const DockerImages = () => {
       />
 
       {user?.role === "admin" && (
-        <form onSubmit={pullImage} className="flex flex-col sm:flex-row gap-2">
-          <FormInput
-            type="text"
-            value={imageName}
-            onChange={(e) => setImageName(e.target.value)}
-            placeholder="Image name (e.g. nginx:latest)"
-            className="flex-1"
-            disabled={isLoading}
-          />
-          <Button type="submit" disabled={isLoading || !imageName}>
-            Pull
-          </Button>
-        </form>
+        <div className="w-full">
+          <form
+            onSubmit={pullImage}
+            className="flex flex-col sm:flex-row gap-2"
+          >
+            <div className="flex-grow">
+              <FormInput
+                type="text"
+                value={imageName}
+                onChange={(e) => setImageName(e.target.value)}
+                placeholder="Image name"
+                disabled={isLoading}
+              />
+            </div>
+            <Button type="submit" disabled={isLoading || !imageName}>
+              Pull
+            </Button>
+          </form>
+        </div>
       )}
 
       {/* Pull Progress */}
