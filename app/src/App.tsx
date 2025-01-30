@@ -16,10 +16,10 @@ import Files from "./features/files/Files";
 import ContainerList from "./features/containers/ContainerList";
 import Container from "./features/containers/Container";
 import CreateContainer from "./features/containers/CreateContainer";
-import DockerImages from "./features/images/Images";
+import Images from "./features/images/Images";
 import Users from "./features/users/Users";
 import DashboardLayout from "./components/layouts/DashboardLayout";
-
+import EditContainer from "./features/containers/EditContainer";
 const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useUser();
 
@@ -48,9 +48,10 @@ const App: React.FC = () => {
               <Route path="/containers" element={<ContainerList />} />
               <Route path="/containers/:id" element={<Container />} />
               <Route path="/containers/create" element={<CreateContainer />} />
-              <Route path="/images" element={<DockerImages />} />
-              <Route path="/users" element={<Users />} />
+              <Route path="/containers/:id/edit" element={<EditContainer />} />
+              <Route path="/images" element={<Images />} />
               <Route path="/files" element={<Files />} />
+              <Route path="/users" element={<Users />} />
             </Route>
           </Routes>
         </div>

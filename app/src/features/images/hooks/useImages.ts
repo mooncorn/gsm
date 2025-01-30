@@ -1,16 +1,20 @@
 import { useState, useRef } from "react";
-import { api, Image, PullProgress } from "../../../api";
+import {
+  api,
+  ContainerImageResponseData,
+  PullProgressResponseData,
+} from "../../../api";
 import { useToast } from "../../../hooks/useToast";
 
 export function useImages() {
   const toast = useToast();
-  const [images, setImages] = useState<Image[]>([]);
+  const [images, setImages] = useState<ContainerImageResponseData[]>([]);
   const [isFetching, setIsFetching] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
   const [deletingImages, setDeletingImages] = useState<Set<string>>(new Set());
   const [imageName, setImageName] = useState("");
   const [pullProgress, setPullProgress] = useState<{
-    [key: string]: PullProgress;
+    [key: string]: PullProgressResponseData;
   }>({});
   const eventSourceRef = useRef<EventSource | null>(null);
 

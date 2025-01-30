@@ -1,14 +1,16 @@
 import { apiClient } from "./config";
-import { User, AllowedUser } from "./types";
+import { UserResponseData, AllowedUserResponseData } from "./types";
 
 export const authApi = {
   getCurrentUser: async () => {
-    const response = await apiClient.get<User>("/user");
+    const response = await apiClient.get<UserResponseData>("/user");
     return response.data;
   },
 
   getAllowedUsers: async () => {
-    const response = await apiClient.get<AllowedUser[]>("/users/allowed");
+    const response = await apiClient.get<AllowedUserResponseData[]>(
+      "/users/allowed"
+    );
     return response.data;
   },
 

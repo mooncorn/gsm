@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { IoPlay, IoStop } from "react-icons/io5";
 import Button from "../../components/ui/Button";
 import PageHeader from "../../components/ui/PageHeader";
@@ -17,6 +17,7 @@ import {
   EnvironmentTab,
 } from "./components/ContainerTabs";
 import { FaTrash } from "react-icons/fa6";
+import { FaEdit } from "react-icons/fa";
 
 const TABS = ["Logs", "State", "Ports", "Mounts", "Environment"];
 
@@ -24,6 +25,7 @@ export default function Container() {
   const { id } = useParams();
   const [activeTab, setActiveTab] = useState(0);
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
+  const navigate = useNavigate();
 
   const {
     container,
@@ -123,6 +125,12 @@ export default function Container() {
               disabled={container.state.running}
               isLoading={isDeleting}
               icon={<FaTrash />}
+            />
+            <Button
+              onClick={() => navigate(`/containers/${id}/edit`)}
+              className="bg-yellow-600 hover:bg-yellow-500"
+              disabled={container.state.running}
+              icon={<FaEdit />}
             />
             <Button
               onClick={container.state.running ? stop : start}

@@ -4,11 +4,11 @@ import FormInput from "../../../components/ui/FormInput";
 import Select from "../../../components/ui/Select";
 import Button from "../../../components/ui/Button";
 import { IoAddCircleOutline, IoRemoveCircleOutline } from "react-icons/io5";
-import { Port } from "../../../types/docker";
+import { ContainerPort } from "../../../types/docker";
 
 interface PortsSectionProps {
-  ports: Port[];
-  onChange: (ports: Port[]) => void;
+  ports: ContainerPort[];
+  onChange: (ports: ContainerPort[]) => void;
 }
 
 export const PortsSection: React.FC<PortsSectionProps> = ({
@@ -25,7 +25,11 @@ export const PortsSection: React.FC<PortsSectionProps> = ({
     onChange(ports.filter((_, i) => i !== index));
   };
 
-  const updatePort = (index: number, field: keyof Port, value: string) => {
+  const updatePort = (
+    index: number,
+    field: keyof ContainerPort,
+    value: string
+  ) => {
     const newPorts = [...ports];
     newPorts[index] = { ...newPorts[index], [field]: value };
     onChange(newPorts);

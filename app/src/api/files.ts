@@ -1,16 +1,20 @@
 import { apiClient } from "./config";
-import { FileInfo, FileContentResponse, UploadFileResponse } from "./types";
+import {
+  FileInfoResponseData,
+  FileContentResponseData,
+  UploadFileResponseData,
+} from "./types";
 
 export const filesApi = {
   list: async (path?: string) => {
-    const response = await apiClient.get<FileInfo[]>("/files", {
+    const response = await apiClient.get<FileInfoResponseData[]>("/files", {
       params: { path },
     });
     return response.data;
   },
 
   getContent: async (path: string) => {
-    const response = await apiClient.get<FileContentResponse>(
+    const response = await apiClient.get<FileContentResponseData>(
       "/files/content",
       {
         params: { path },
@@ -38,7 +42,7 @@ export const filesApi = {
     formData.append("file", file);
     formData.append("path", path);
 
-    const response = await apiClient.post<UploadFileResponse>(
+    const response = await apiClient.post<UploadFileResponseData>(
       "/files/upload",
       formData,
       {
@@ -57,7 +61,7 @@ export const filesApi = {
     });
     formData.append("path", path);
 
-    const response = await apiClient.post<UploadFileResponse>(
+    const response = await apiClient.post<UploadFileResponseData>(
       "/files/upload/directory",
       formData,
       {

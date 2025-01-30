@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { FileInfo } from "../../api";
+import { FileInfoResponseData } from "../../api";
 import { api } from "../../api";
 import Button from "../../components/ui/Button";
 import { TbFolderPlus, TbUpload, TbArrowLeft } from "react-icons/tb";
@@ -25,18 +25,22 @@ export function Files() {
     navigateToPath,
   } = useFiles();
 
-  const [selectedFile, setSelectedFile] = useState<FileInfo | null>(null);
+  const [selectedFile, setSelectedFile] = useState<FileInfoResponseData | null>(
+    null
+  );
   const [fileContent, setFileContent] = useState("");
   const [showFileEditor, setShowFileEditor] = useState(false);
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
-  const [fileToDelete, setFileToDelete] = useState<FileInfo | null>(null);
+  const [fileToDelete, setFileToDelete] = useState<FileInfoResponseData | null>(
+    null
+  );
   const [isUploading, setIsUploading] = useState(false);
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const toast = useToast();
-  const handleFileClick = async (file: FileInfo) => {
+  const handleFileClick = async (file: FileInfoResponseData) => {
     if (file.isDir) {
       navigateToPath(file.path);
     } else if (file.isReadable) {
@@ -64,7 +68,7 @@ export function Files() {
     }
   };
 
-  const handleDelete = (file: FileInfo) => {
+  const handleDelete = (file: FileInfoResponseData) => {
     setFileToDelete(file);
     setShowDeleteConfirmation(true);
   };

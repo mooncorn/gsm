@@ -65,6 +65,7 @@ func main() {
 
 	// Docker Routes (non-SSE)
 	r.POST("/docker/containers", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.ContainerCreate)
+	r.PUT("/docker/containers/:id", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.UpdateContainer)
 	r.GET("/docker/containers", middlewares.CheckUser, middlewares.RequireUser, handlers.ContainerList)
 	r.GET("/docker/containers/:id", middlewares.CheckUser, middlewares.RequireUser, handlers.InspectContainer)
 	r.GET("/docker/containers/:id/logs", middlewares.CheckUser, middlewares.RequireUser, handlers.Logs)

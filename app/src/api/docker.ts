@@ -1,30 +1,47 @@
-import { apiClient } from "./config";
+import { apiClient, createEventSource } from "./config";
 import {
-  ContainerListItem,
-  ContainerDetails,
-  Image,
-  CreateContainerRequest,
-  ContainerExecResponse,
+  ContainerListItemResponseData,
+  ContainerDetailsResponseData,
+  ContainerImageResponseData,
+  CreateContainerRequestData,
+  ContainerExecResponseData,
+  CreateContainerResponseData,
 } from "./types";
 
 export const dockerApi = {
   // Container operations
-  listContainers: async () => {
-    const response = await apiClient.get<ContainerListItem[]>(
+  listContainers: async (): Promise<ContainerListItemResponseData[]> => {
+    const response = await apiClient.get<ContainerListItemResponseData[]>(
       "/docker/containers"
     );
     return response.data;
   },
 
-  getContainer: async (id: string) => {
-    const response = await apiClient.get<ContainerDetails>(
+  getContainer: async (id: string): Promise<ContainerDetailsResponseData> => {
+    const response = await apiClient.get<ContainerDetailsResponseData>(
       `/docker/containers/${id}`
     );
     return response.data;
   },
 
-  createContainer: async (data: CreateContainerRequest) => {
-    const response = await apiClient.post("/docker/containers", data);
+  createContainer: async (
+    data: CreateContainerRequestData
+  ): Promise<CreateContainerResponseData> => {
+    const response = await apiClient.post<CreateContainerResponseData>(
+      `/docker/containers`,
+      data
+    );
+    return response.data;
+  },
+
+  updateContainer: async (
+    id: string,
+    data: CreateContainerRequestData
+  ): Promise<CreateContainerResponseData> => {
+    const response = await apiClient.put<CreateContainerResponseData>(
+      `/docker/containers/${id}`,
+      data
+    );
     return response.data;
   },
 
@@ -45,7 +62,7 @@ export const dockerApi = {
   },
 
   executeCommand: async (id: string, command: string) => {
-    const response = await apiClient.post<ContainerExecResponse>(
+    const response = await apiClient.post<ContainerExecResponseData>(
       `/docker/containers/${id}/exec`,
       {
         command,
@@ -64,18 +81,15 @@ export const dockerApi = {
 
   // Image operations
   listImages: async () => {
-    const response = await apiClient.get<Image[]>("/docker/images");
+    const response = await apiClient.get<ContainerImageResponseData[]>(
+      "/docker/images"
+    );
     return response.data;
   },
 
   pullImage: (imageName: string) => {
-    return new EventSource(
-      `${
-        apiClient.defaults.baseURL
-      }/docker/images/pull?imageName=${encodeURIComponent(imageName)}`,
-      {
-        withCredentials: true,
-      }
+    return createEventSource(
+      `/docker/images/pull?imageName=${encodeURIComponent(imageName)}`
     );
   },
 
@@ -84,17 +98,10 @@ export const dockerApi = {
   },
 
   streamDockerEvents: () => {
-    return new EventSource(`${apiClient.defaults.baseURL}/docker/events`, {
-      withCredentials: true,
-    });
+    return createEventSource("/docker/events");
   },
 
   streamContainerLogs: (id: string) => {
-    return new EventSource(
-      `${apiClient.defaults.baseURL}/docker/containers/${id}/logs/stream`,
-      {
-        withCredentials: true,
-      }
-    );
+    return createEventSource(`/docker/containers/${id}/logs/stream`);
   },
 };

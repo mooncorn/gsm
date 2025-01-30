@@ -40,3 +40,19 @@ export const createApiClient = (): AxiosInstance => {
 };
 
 export const apiClient = createApiClient();
+
+export function createEventSource<T extends { data: any; type: string }>(
+  url: string
+): EventSource & {
+  onmessage: (event: T) => void;
+  onerror: (event: Event) => void;
+} {
+  const eventSourceInit: EventSourceInit = {
+    withCredentials: true,
+  };
+
+  return new EventSource(`${apiUrl}${url}`, eventSourceInit) as EventSource & {
+    onmessage: (event: T) => void;
+    onerror: (event: Event) => void;
+  };
+}

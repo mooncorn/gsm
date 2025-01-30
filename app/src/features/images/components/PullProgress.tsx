@@ -1,8 +1,8 @@
-import { PullProgress as PullProgressType } from "../../../api";
+import { PullProgressResponseData } from "../../../api";
 import { formatBytes } from "../../../utils/format";
 
 interface PullProgressProps {
-  progress: { [key: string]: PullProgressType };
+  progress: { [key: string]: PullProgressResponseData };
 }
 
 export function PullProgress({ progress }: PullProgressProps) {

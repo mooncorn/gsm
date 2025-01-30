@@ -1,15 +1,15 @@
-import { FileInfo } from "../../../api";
+import { FileInfoResponseData } from "../../../api";
 import { TbFile, TbFolder, TbDownload, TbTrash, TbEdit } from "react-icons/tb";
 import Button from "../../../components/ui/Button";
 import { formatBytes, formatDate } from "../../../utils/format";
 import FileCard from "./FileCard";
 
 interface FileListProps {
-  files: FileInfo[];
+  files: FileInfoResponseData[];
   isLoading: boolean;
-  onFileClick: (file: FileInfo) => void;
-  onDownload: (file: FileInfo) => void;
-  onDelete: (file: FileInfo) => void;
+  onFileClick: (file: FileInfoResponseData) => void;
+  onDownload: (file: FileInfoResponseData) => void;
+  onDelete: (file: FileInfoResponseData) => void;
 }
 
 export function FileList({

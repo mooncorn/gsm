@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Image } from "../../../api";
+import { ContainerImageResponseData } from "../../../api";
 import { api } from "../../../api";
 import { useToast } from "../../../hooks/useToast";
 
 // Cache for storing fetched images
-let imageCache: Image[] | null = null;
+let imageCache: ContainerImageResponseData[] | null = null;
 let lastFetchTime = 0;
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 export function useImageSearch() {
-  const [images, setImages] = useState<Image[]>([]);
+  const [images, setImages] = useState<ContainerImageResponseData[]>([]);
   const [filteredImages, setFilteredImages] = useState<string[]>([]);
   const [showImageDropdown, setShowImageDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);

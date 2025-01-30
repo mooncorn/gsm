@@ -2,7 +2,7 @@ export interface ContainerTemplate {
   containerName: string;
   image: string;
   volumes: string[];
-  ports: Port[];
+  ports: ContainerPort[];
   environment: { key: string; value: string }[];
   memory: string;
   cpu: string;
@@ -13,7 +13,7 @@ export interface ContainerTemplate {
   attachStderr: boolean;
 }
 
-export interface Port {
+export interface ContainerPort {
   hostPort: string;
   containerPort: string;
   protocol: string;

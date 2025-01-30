@@ -2,10 +2,9 @@ import FormSection from "../../../components/ui/FormSection";
 import FormInput from "../../../components/ui/FormInput";
 import Card from "../../../components/ui/Card";
 import { formatMemoryMB, formatPercent } from "../../../utils/formatSystem";
-import { SystemResources } from "../../../types/system";
+import { useSystemResources } from "../../../hooks/useSystemResources";
 
 interface ResourceLimitsSectionProps {
-  systemResources: SystemResources | null;
   memory: string;
   cpu: string;
   onMemoryChange: (value: string) => void;
@@ -33,18 +32,15 @@ function ResourceInfo({ label, value, subValue }: ResourceInfoProps) {
 }
 
 export function ResourceLimitsSection({
-  systemResources,
   memory,
   cpu,
   onMemoryChange,
   onCpuChange,
 }: ResourceLimitsSectionProps) {
-  if (!systemResources) {
-    return null;
-  }
+  const { resources } = useSystemResources();
 
-  const memoryMB = formatMemoryMB(systemResources.memory?.free);
-  const totalMemoryMB = formatMemoryMB(systemResources.memory?.total);
+  const memoryMB = formatMemoryMB(resources?.memory?.available);
+  const totalMemoryMB = formatMemoryMB(resources?.memory?.total);
 
   return (
     <FormSection title="Resource Limits">
@@ -61,8 +57,8 @@ export function ResourceLimitsSection({
             />
             <ResourceInfo
               label="CPU"
-              value={`${systemResources.cpu?.cores || 0} cores`}
-              subValue={`(${formatPercent(systemResources.cpu?.used)}% used)`}
+              value={`${resources?.cpu?.cores || 0} cores`}
+              subValue={`(${formatPercent(resources?.cpu?.used)}% used)`}
             />
           </div>
 
@@ -70,17 +66,15 @@ export function ResourceLimitsSection({
             <div className="grid grid-cols-2 gap-4">
               <ResourceInfo
                 label="Docker Containers"
-                value={`${
-                  systemResources.docker?.running_containers || 0
-                } running`}
+                value={`${resources?.docker?.running_containers || 0} running`}
                 subValue={`of ${
-                  systemResources.docker?.total_containers || 0
+                  resources?.docker?.total_containers || 0
                 } total`}
               />
               <ResourceInfo
                 label="System"
-                value={`${systemResources.system?.platform || "Unknown"} (${
-                  systemResources.cpu?.architecture || "Unknown"
+                value={`${resources?.system?.platform || "Unknown"} (${
+                  resources?.cpu?.architecture || "Unknown"
                 })`}
               />
             </div>

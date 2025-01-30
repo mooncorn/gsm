@@ -778,3 +778,66 @@ func RemoveImage(c *gin.Context) {
 
 	c.Status(200)
 }
+
+func UpdateContainer(c *gin.Context) {
+	id := c.Param("id")
+	var req ContainerCreateRequest
+	if err := c.BindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "invalid request"})
+		return
+	}
+
+	docker, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		c.JSON(500, gin.H{"error": fmt.Sprintf("failed to create docker client: %v", err)})
+		return
+	}
+
+	// Get current container details
+	inspect, err := docker.ContainerInspect(c, id)
+	if err != nil {
+		c.JSON(400, gin.H{"error": fmt.Sprintf("failed to inspect container: %v", err)})
+		return
+	}
+
+	// Stop the container if it's running
+	if inspect.State.Running {
+		if err := docker.ContainerStop(c, id, container.StopOptions{}); err != nil {
+			c.JSON(400, gin.H{"error": fmt.Sprintf("failed to stop container: %v", err)})
+			return
+		}
+	}
+
+	// Remove the container
+	if err := docker.ContainerRemove(c, id, container.RemoveOptions{RemoveVolumes: false}); err != nil {
+		c.JSON(400, gin.H{"error": fmt.Sprintf("failed to remove container: %v", err)})
+		return
+	}
+
+	// Convert to Docker types with validation
+	config, hostConfig, err := req.ToDockerConfig()
+	if err != nil {
+		c.JSON(400, gin.H{"error": fmt.Sprintf("invalid configuration: %v", err)})
+		return
+	}
+
+	// Create new container with updated configuration
+	createResponse, err := docker.ContainerCreate(c, config, hostConfig, nil, nil, req.Name)
+	if err != nil {
+		c.JSON(400, gin.H{"error": fmt.Sprintf("failed to create container: %v", err)})
+		return
+	}
+
+	// Start the container if it was running before
+	if inspect.State.Running {
+		if err := docker.ContainerStart(c, createResponse.ID, container.StartOptions{}); err != nil {
+			c.JSON(400, gin.H{"error": fmt.Sprintf("failed to start container: %v", err)})
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"id":       createResponse.ID,
+		"warnings": createResponse.Warnings,
+	})
+}

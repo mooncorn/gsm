@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useToast } from "../../../hooks/useToast";
-import { ContainerTemplate, Port } from "../../../types/docker";
-import { api, CreateContainerRequest } from "../../../api";
+import { ContainerTemplate, ContainerPort } from "../../../types/docker";
+import { api, CreateContainerRequestData } from "../../../api";
 import { useState } from "react";
 
 export function useContainerFormSubmission() {
@@ -12,10 +12,10 @@ export function useContainerFormSubmission() {
   const submitForm = async (formData: ContainerTemplate) => {
     try {
       setIsLoading(true);
-      const requestData: CreateContainerRequest = {
+      const requestData: CreateContainerRequestData = {
+        ...formData,
         name: formData.containerName,
-        image: formData.image,
-        ports: formData.ports.map((port: Port) => ({
+        ports: formData.ports.map((port: ContainerPort) => ({
           hostPort: parseInt(port.hostPort),
           containerPort: parseInt(port.containerPort),
           protocol: port.protocol,
@@ -28,11 +28,6 @@ export function useContainerFormSubmission() {
         volumes: formData.volumes,
         memory: formData.memory ? parseInt(formData.memory) : 0,
         cpu: formData.cpu ? parseFloat(formData.cpu) : 0,
-        restart: formData.restart,
-        tty: formData.tty,
-        attachStdin: formData.attachStdin,
-        attachStdout: formData.attachStdout,
-        attachStderr: formData.attachStderr,
       };
 
       await api.docker.createContainer(requestData);

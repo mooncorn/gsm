@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, ContainerDetails } from "../../../api";
+import { api, ContainerDetailsResponseData } from "../../../api";
 import { useToast } from "../../../hooks/useToast";
 
 export function useContainerOperations(id: string | undefined) {
   const navigate = useNavigate();
   const toast = useToast();
-  const [container, setContainer] = useState<ContainerDetails | null>(null);
+  const [container, setContainer] =
+    useState<ContainerDetailsResponseData | null>(null);
   const [isFetching, setIsFetching] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [isStopping, setIsStopping] = useState(false);

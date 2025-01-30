@@ -7,6 +7,7 @@ import { PortsSection } from "./PortsSection";
 import { EnvironmentSection } from "./EnvironmentSection";
 import { VolumesSection } from "./VolumesSection";
 import { TerminalOptionsSection } from "./TerminalOptionsSection";
+import { ResourceLimitsSection } from "./ResourceLimitsSection";
 
 interface ContainerFormProps {
   formData: ContainerTemplate;
@@ -107,6 +108,15 @@ export function ContainerForm({
           }
         />
       </FormSection>
+
+      <ResourceLimitsSection
+        memory={formData.memory}
+        cpu={formData.cpu}
+        onMemoryChange={(value) =>
+          onFormDataChange({ ...formData, memory: value })
+        }
+        onCpuChange={(value) => onFormDataChange({ ...formData, cpu: value })}
+      />
 
       <TerminalOptionsSection
         tty={formData.tty}

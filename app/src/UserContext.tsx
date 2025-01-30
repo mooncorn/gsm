@@ -1,13 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { UserContextType } from "./types/user";
-import { User } from "./api";
-import { api } from "./api";
+import { api, UserResponseData } from "./api";
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserResponseData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {

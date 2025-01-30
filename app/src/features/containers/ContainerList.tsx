@@ -10,14 +10,7 @@ import { ContainerCard } from "./components/ContainerCard";
 
 export default function ContainerList() {
   const navigate = useNavigate();
-  const {
-    containers,
-    isLoading,
-    fetchContainers,
-    getContainerName,
-    capitalizeFirstLetter,
-    cleanStatus,
-  } = useContainerList();
+  const { containers, isLoading, fetchContainers } = useContainerList();
 
   const { connectToDockerEvents, disconnectDockerEvents } =
     useDockerEvents(fetchContainers);
@@ -58,9 +51,6 @@ export default function ContainerList() {
           <ContainerCard
             key={container.id}
             container={container}
-            getContainerName={getContainerName}
-            capitalizeFirstLetter={capitalizeFirstLetter}
-            cleanStatus={cleanStatus}
             onContainerClick={(name) => navigate(`/containers/${name}`)}
           />
         ))}

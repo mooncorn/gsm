@@ -1,10 +1,10 @@
-import { AllowedUser } from "../../../api";
+import { AllowedUserResponseData } from "../../../api";
 import { formatDate } from "../../../utils/format";
 import Button from "../../../components/ui/Button";
 import { FaTrash } from "react-icons/fa";
 
 interface UserCardProps {
-  user: AllowedUser;
+  user: AllowedUserResponseData;
   onRemove: (email: string) => void;
   isRemoving: (email: string) => boolean;
 }

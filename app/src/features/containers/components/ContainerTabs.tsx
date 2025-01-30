@@ -1,5 +1,5 @@
 import React from "react";
-import { ContainerDetails } from "../../../api";
+import { ContainerDetailsResponseData } from "../../../api";
 import { formatDate } from "../../../utils/format";
 import { useUser } from "../../../UserContext";
 import Button from "../../../components/ui/Button";
@@ -63,7 +63,7 @@ export function LogsTab({
 }
 
 interface StateTabProps {
-  container: ContainerDetails;
+  container: ContainerDetailsResponseData;
 }
 
 export function StateTab({ container }: StateTabProps) {
@@ -130,7 +130,7 @@ export function StateTab({ container }: StateTabProps) {
 }
 
 interface PortsTabProps {
-  container: ContainerDetails;
+  container: ContainerDetailsResponseData;
 }
 
 export function PortsTab({ container }: PortsTabProps) {
@@ -162,7 +162,7 @@ export function PortsTab({ container }: PortsTabProps) {
 }
 
 interface MountsTabProps {
-  container: ContainerDetails;
+  container: ContainerDetailsResponseData;
 }
 
 export function MountsTab({ container }: MountsTabProps) {
@@ -194,7 +194,7 @@ export function MountsTab({ container }: MountsTabProps) {
 }
 
 interface EnvironmentTabProps {
-  container: ContainerDetails;
+  container: ContainerDetailsResponseData;
 }
 
 export function EnvironmentTab({ container }: EnvironmentTabProps) {

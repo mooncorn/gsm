@@ -12,9 +12,14 @@ export function useSystemResources() {
       eventSourceRef.current = api.system.streamResources();
 
       eventSourceRef.current.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        setResources(data);
-        setError(null);
+        try {
+          const parsedData = JSON.parse(event.data) as SystemResources;
+          setResources(parsedData);
+          setError(null);
+        } catch (err) {
+          console.error("Failed to parse system resources data:", err);
+          setError("Failed to parse system resources data");
+        }
       };
 
       eventSourceRef.current.onerror = (error) => {

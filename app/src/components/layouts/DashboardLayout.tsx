@@ -1,14 +1,10 @@
-import React, { ReactNode, useState } from "react";
+import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import Sidebar from "../navigation/Sidebar";
 import Header from "../ui/Header";
 import { TbMenu2 } from "react-icons/tb";
 
-interface DashboardLayoutProps {
-  children?: ReactNode;
-}
-
-const DashboardLayout: React.FC<DashboardLayoutProps> = () => {
+const DashboardLayout = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (

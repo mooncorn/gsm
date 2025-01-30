@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { FileInfo } from "../../../api";
+import { FileInfoResponseData } from "../../../api";
 import Button from "../../../components/ui/Button";
 import { IoArrowBack } from "react-icons/io5";
 
 interface FileEditorProps {
-  file: FileInfo;
+  file: FileInfoResponseData;
   initialContent: string;
   onSave: (content: string) => Promise<boolean>;
   onClose: () => void;

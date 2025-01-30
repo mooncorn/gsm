@@ -15,6 +15,14 @@ RUN go build -o app .
 # Stage 2: Runtime
 FROM debian:bullseye-slim
 
+# Create app user and set permissions
+RUN groupadd -r appuser && \
+    useradd -r -g appuser appuser && \
+    mkdir -p /app /gsm/shared && \
+    chown -R appuser:appuser /app /gsm/shared
+
+USER appuser
+
 WORKDIR /app
 COPY --from=builder /app/app .
 COPY .env .

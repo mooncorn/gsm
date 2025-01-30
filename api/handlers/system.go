@@ -19,6 +19,7 @@ type SystemResourcesResponse struct {
 		Total       uint64  `json:"total"`        // Total memory in bytes
 		Used        uint64  `json:"used"`         // Used memory in bytes
 		Free        uint64  `json:"free"`         // Free memory in bytes
+		Available   uint64  `json:"available"`    // Available memory in bytes
 		UsedPercent float64 `json:"used_percent"` // Percentage of memory used
 	} `json:"memory"`
 	CPU struct {
@@ -144,6 +145,7 @@ func StreamSystemResources(c *gin.Context) {
 				response.Memory.Total = memInfo.Total
 				response.Memory.Used = memInfo.Used
 				response.Memory.Free = memInfo.Free
+				response.Memory.Available = memInfo.Available
 				response.Memory.UsedPercent = memInfo.UsedPercent
 			}
 

@@ -1,47 +1,46 @@
-export interface User {
+export interface UserResponseData {
   email: string;
   role: string;
   picture?: string;
 }
 
-// Auth & User Types
-export interface AuthResponse {
-  user: User;
+export interface AuthResponseData {
+  user: UserResponseData;
 }
 
-export interface AllowedUser extends User {
+export interface AllowedUserResponseData extends UserResponseData {
   Id: number;
   CreatedAt: string;
   UpdatedAt: string;
 }
 
-// Docker Types
-export interface CreateContainerRequest {
+export interface CreateContainerRequestData {
   name: string;
   image: string;
-  ports: Array<{
-    hostPort: number;
-    containerPort: number;
-    protocol: string;
-  }>;
+  ports: ContainerPortResponseData[];
   env: string[];
+  volumes: string[];
   memory: number;
   cpu: number;
   restart: string;
-  volumes: string[];
   tty: boolean;
   attachStdin: boolean;
   attachStdout: boolean;
   attachStderr: boolean;
 }
 
-export interface Port {
+export interface CreateContainerResponseData {
+  id: string;
+  warnings: string[];
+}
+
+export interface ContainerPortResponseData {
   hostPort: number;
   containerPort: number;
   protocol: string;
 }
 
-export interface DockerEventResponse {
+export interface DockerEventResponseData {
   event_type: string;
   action: string;
   actor: {
@@ -51,16 +50,16 @@ export interface DockerEventResponse {
 }
 
 // File Types
-export interface UploadFileResponse {
+export interface UploadFileResponseData {
   message: string;
   path: string;
 }
 
-export interface FileListResponse {
-  files: FileInfo[];
+export interface FileListResponseData {
+  files: FileInfoResponseData[];
 }
 
-export interface ContainerListItem {
+export interface ContainerListItemResponseData {
   id: string;
   names: string[];
   image: string;
@@ -68,42 +67,46 @@ export interface ContainerListItem {
   status: string;
 }
 
-export interface ContainerDetails {
+export interface ContainerStateResponseData {
+  status: string;
+  running: boolean;
+  startedAt: string;
+  finishedAt: string;
+}
+
+export interface ContainerConfigResponseData {
+  tty: boolean;
+  attachStdin: boolean;
+  attachStdout: boolean;
+  attachStderr: boolean;
+  env: string[];
+  image: string;
+}
+
+export interface ContainerDetailsResponseData {
   id: string;
-  created: Date;
-  state: {
-    status: string;
-    running: boolean;
-    startedAt: Date;
-    finishedAt: Date;
-  };
+  created: string;
+  state: ContainerStateResponseData;
   name: string;
-  mounts: Mount[];
-  config: {
-    tty: boolean;
-    attachStdin: boolean;
-    attachStdout: boolean;
-    attachStderr: boolean;
-    env: string[];
-    image: string;
-  };
+  mounts: ContainerMountResponseData[];
+  config: ContainerConfigResponseData;
   hostConfig: {
-    portBindings: Record<string, Port[]>;
-    restartPolicy: {
-      name: string;
-    };
+    portBindings: Record<string, ContainerPortResponseData[]>;
+    restartPolicy: { name: string };
     binds: string[];
+    memory: number;
+    cpu: number;
   };
 }
 
-export interface Mount {
+export interface ContainerMountResponseData {
   type: string;
   source: string;
   target: string;
   readOnly: boolean;
 }
 
-export interface Image {
+export interface ContainerImageResponseData {
   Id: string;
   ParentId: string;
   RepoTags: string[];
@@ -116,7 +119,7 @@ export interface Image {
   Containers: number;
 }
 
-export interface PullProgress {
+export interface PullProgressResponseData {
   status: string;
   progressDetail?: {
     current: number;
@@ -126,18 +129,7 @@ export interface PullProgress {
   id?: string;
 }
 
-export interface ContainerConfig {
-  image: string;
-  env: string[];
-  tty: boolean;
-  attachStdin: boolean;
-  attachStdout: boolean;
-  attachStderr: boolean;
-  exposedPorts: { [key: string]: object };
-  volumes: { [key: string]: object };
-}
-
-export interface FileInfo {
+export interface FileInfoResponseData {
   name: string;
   path: string;
   size: number;
@@ -149,28 +141,28 @@ export interface FileInfo {
   isExecutable: boolean;
 }
 
-export interface FileOperationResponse {
+export interface FileOperationResponseData {
   message: string;
 }
 
-export interface FileContentResponse {
+export interface FileContentResponseData {
   content: string;
 }
 
-export interface MoveFileRequest {
+export interface MoveFileRequestData {
   source: string;
   destination: string;
 }
 
-export interface CreateDirectoryRequest {
+export interface CreateDirectoryRequestData {
   path: string;
 }
 
-export interface WriteFileRequest {
+export interface WriteFileRequestData {
   path: string;
   content: string;
 }
 
-export interface ContainerExecResponse {
+export interface ContainerExecResponseData {
   output: string;
 }

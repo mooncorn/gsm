@@ -1,20 +1,19 @@
-import { ContainerListItem } from "../../../api";
+import { ContainerListItemResponseData } from "../../../api";
+import ContainerStatusLabel from "./ContainerStateLabel";
 
 interface ContainerCardProps {
-  container: ContainerListItem;
-  getContainerName: (container: ContainerListItem) => string;
-  capitalizeFirstLetter: (val: string) => string;
-  cleanStatus: (status: string) => string;
+  container: ContainerListItemResponseData;
   onContainerClick: (name: string) => void;
 }
 
 export function ContainerCard({
   container,
-  getContainerName,
-  capitalizeFirstLetter,
-  cleanStatus,
   onContainerClick,
 }: ContainerCardProps) {
+  const getContainerName = (container: ContainerListItemResponseData) => {
+    return container.names[0].replace("/", "");
+  };
+
   return (
     <div className="bg-gray-800 rounded-lg p-4 hover:bg-gray-700 transition-colors duration-200">
       <div className="flex flex-col space-y-2">
@@ -26,15 +25,7 @@ export function ContainerCard({
             {getContainerName(container)}
           </div>
           <div className="flex items-center gap-2">
-            <span
-              className={`px-2 py-1 text-xs rounded whitespace-nowrap ${
-                container.state === "running"
-                  ? "bg-green-900 text-green-100"
-                  : "bg-red-900 text-red-100"
-              }`}
-            >
-              {capitalizeFirstLetter(container.state)}
-            </span>
+            <ContainerStatusLabel state={container.state} />
           </div>
         </div>
         <div className="flex flex-col space-y-1">
@@ -42,7 +33,7 @@ export function ContainerCard({
             {container.image}
           </span>
           <span className="text-xs text-gray-500">
-            {cleanStatus(container.status)}
+            {container.status.replace(/\s*\([^)]*\)/, "")}
           </span>
         </div>
       </div>

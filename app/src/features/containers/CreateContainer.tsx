@@ -5,7 +5,6 @@ import { useContainerTemplates } from "../../hooks/useContainerTemplates";
 import { useImageSearch } from "./hooks/useImageSearch";
 import { useContainerFormValidation } from "./hooks/useContainerFormValidation";
 import { useContainerFormSubmission } from "./hooks/useContainerFormSubmission";
-import { useSystemResources } from "../../hooks/useSystemResources";
 
 // UI Components
 import Button from "../../components/ui/Button";
@@ -13,7 +12,6 @@ import PageHeader from "../../components/ui/PageHeader";
 import TemplateControls from "../../components/ui/TemplateControls";
 import SaveTemplateModal from "./components/SaveTemplateModal";
 import { ContainerForm } from "./components/ContainerForm";
-import { ResourceLimitsSection } from "./components/ResourceLimitsSection";
 
 const INITIAL_FORM_STATE: ContainerTemplate = {
   containerName: "",
@@ -34,7 +32,6 @@ export default function CreateContainer() {
   const navigate = useNavigate();
   const { validateForm } = useContainerFormValidation();
   const { submitForm, isLoading: isCreating } = useContainerFormSubmission();
-  const { resources } = useSystemResources();
   const {
     selectedTemplate,
     setSelectedTemplate,
@@ -116,18 +113,6 @@ export default function CreateContainer() {
               handleSearch: handleImageSearch,
               isLoading: isLoadingImages,
             }}
-          />
-
-          <ResourceLimitsSection
-            systemResources={resources}
-            memory={formData.memory}
-            cpu={formData.cpu}
-            onMemoryChange={(value) =>
-              setFormData((prev) => ({ ...prev, memory: value }))
-            }
-            onCpuChange={(value) =>
-              setFormData((prev) => ({ ...prev, cpu: value }))
-            }
           />
 
           <div className="flex justify-end gap-2 mt-6">

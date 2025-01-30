@@ -25,11 +25,8 @@ export function useContainerLogs(id: string | undefined) {
       logEventSourceRef.current = api.docker.streamContainerLogs(id);
 
       logEventSourceRef.current.onmessage = (event) => {
-        setLogs((prevLogs) => {
-          // Ensure we're working with an array
-          const currentLogs = Array.isArray(prevLogs) ? prevLogs : [];
-          return [...currentLogs, event.data];
-        });
+        const logs = event.data as string;
+        setLogs((prevLogs) => [...prevLogs, logs]);
       };
 
       logEventSourceRef.current.onerror = (error) => {

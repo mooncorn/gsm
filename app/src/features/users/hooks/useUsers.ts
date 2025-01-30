@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { api, AllowedUser } from "../../../api";
+import { api, AllowedUserResponseData } from "../../../api";
 import { useToast } from "../../../hooks/useToast";
 
 export function useUsers() {
   const toast = useToast();
-  const [users, setUsers] = useState<AllowedUser[]>([]);
+  const [users, setUsers] = useState<AllowedUserResponseData[]>([]);
   const [isFetching, setIsFetching] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
   const [removingUsers, setRemovingUsers] = useState<Set<string>>(new Set());

@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { FileInfo } from "../../../api";
+import { FileInfoResponseData } from "../../../api";
 import { api } from "../../../api";
 import { useToast } from "../../../hooks/useToast";
 
 export function useFiles() {
   const toast = useToast();
   const toastRef = useRef(toast);
-  const [files, setFiles] = useState<FileInfo[]>([]);
+  const [files, setFiles] = useState<FileInfoResponseData[]>([]);
   const [currentPath, setCurrentPath] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
@@ -59,7 +59,7 @@ export function useFiles() {
   );
 
   const deleteFile = useCallback(
-    async (file: FileInfo) => {
+    async (file: FileInfoResponseData) => {
       try {
         await api.files.delete(file.path);
         await fetchFiles();
@@ -96,7 +96,7 @@ export function useFiles() {
     [currentPath, fetchFiles]
   );
 
-  const readFile = useCallback(async (file: FileInfo) => {
+  const readFile = useCallback(async (file: FileInfoResponseData) => {
     try {
       const data = await api.files.getContent(file.path);
       return data.content;

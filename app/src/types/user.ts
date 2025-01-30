@@ -1,6 +1,6 @@
-import { User } from "../api";
+import { UserResponseData } from "../api";
 
 export interface UserContextType {
-  user: User | null;
-  setUser: React.Dispatch<React.SetStateAction<User | null>>;
+  user: UserResponseData | null;
+  setUser: React.Dispatch<React.SetStateAction<UserResponseData | null>>;
 }

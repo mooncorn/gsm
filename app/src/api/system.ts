@@ -1,14 +1,7 @@
-import { apiUrl } from "../config/constants";
+import { createEventSource } from "./config";
 
 export const systemApi = {
   streamResources: () => {
-    const eventSourceInit: EventSourceInit = {
-      withCredentials: true,
-    };
-
-    return new EventSource(
-      `${apiUrl}/system/resources/stream`,
-      eventSourceInit
-    );
+    return createEventSource("/system/resources/stream");
   },
 };

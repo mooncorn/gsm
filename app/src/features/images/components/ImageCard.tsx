@@ -1,11 +1,11 @@
-import { Image } from "../../../api";
+import { ContainerImageResponseData } from "../../../api";
 import { formatBytes, formatDate } from "../../../utils/format";
 import Button from "../../../components/ui/Button";
 import { useUser } from "../../../UserContext";
 import { FaTrash } from "react-icons/fa";
 
 interface ImageCardProps {
-  image: Image;
+  image: ContainerImageResponseData;
   onDelete: (id: string) => void;
   isDeleting: (id: string) => boolean;
 }

@@ -3,6 +3,7 @@ export interface SystemResources {
     total: number;
     used: number;
     free: number;
+    available: number;
     used_percent: number;
   };
   cpu: {
