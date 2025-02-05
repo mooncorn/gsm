@@ -1,472 +1,214 @@
 package handlers
 
 import (
-	"archive/zip"
 	"fmt"
-	"io"
+	docker "gsm/client"
+	middleware "gsm/middleware"
 	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
 
-	"github.com/gabriel-vasile/mimetype"
 	"github.com/gin-gonic/gin"
 )
 
-type FileInfo struct {
-	Name         string    `json:"name"`
-	Path         string    `json:"path"`
-	Size         int64     `json:"size"`
-	IsDir        bool      `json:"isDir"`
-	ModTime      time.Time `json:"modTime"`
-	Permissions  string    `json:"permissions"`
-	IsReadable   bool      `json:"isReadable"`
-	IsWritable   bool      `json:"isWritable"`
-	IsExecutable bool      `json:"isExecutable"`
+const BASE_DIR = "/gsm/volumes"
+
+type FileHandler struct {
+	cli docker.FileClient
 }
 
-func getBaseDir() string {
-	return "/gsm/shared"
+func NewFileHandler() (*FileHandler, error) {
+	cli := docker.NewFileClient(BASE_DIR)
+	return &FileHandler{cli: cli}, nil
 }
 
-func sanitizePath(requestPath string) (string, error) {
-	// Use the shared directory as the base
-	baseDir := getBaseDir()
-
-	// Join the base directory with the requested path
-	fullPath := filepath.Join(baseDir, requestPath)
-
-	// Clean the path to remove any ".." or "." components
-	fullPath = filepath.Clean(fullPath)
-
-	// Check if the resulting path is within the shared directory
-	if !strings.HasPrefix(fullPath, baseDir) {
-		return "", fmt.Errorf("access denied: path outside shared directory")
-	}
-
-	return fullPath, nil
-}
-
-func getFilePermissions(info os.FileInfo) (bool, bool, bool) {
-	mode := info.Mode()
-	isReadable := mode&0444 != 0   // Check if readable
-	isWritable := mode&0222 != 0   // Check if writable
-	isExecutable := mode&0111 != 0 // Check if executable
-	return isReadable, isWritable, isExecutable
-}
-
-// ListFiles handles GET /files
-func ListFiles(c *gin.Context) {
-	requestPath := c.Query("path")
-	if requestPath == "" {
-		requestPath = "/"
-	}
-
-	fullPath, err := sanitizePath(requestPath)
+// RegisterFileHandlers registers all file-related handlers with the given router group
+func RegisterFileHandlers(router gin.IRouter) error {
+	handler, err := NewFileHandler()
 	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-		return
+		return fmt.Errorf("failed to create file handler: %v", err)
 	}
 
-	entries, err := os.ReadDir(fullPath)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to read directory: %v", err)})
-		return
-	}
-
-	var files []FileInfo
-	for _, entry := range entries {
-		info, err := entry.Info()
-		if err != nil {
-			continue
-		}
-
-		isReadable, isWritable, isExecutable := getFilePermissions(info)
-		relativePath := strings.TrimPrefix(filepath.Join(requestPath, entry.Name()), "/")
-
-		files = append(files, FileInfo{
-			Name:         entry.Name(),
-			Path:         relativePath,
-			Size:         info.Size(),
-			IsDir:        entry.IsDir(),
-			ModTime:      info.ModTime(),
-			Permissions:  info.Mode().String(),
-			IsReadable:   isReadable,
-			IsWritable:   isWritable,
-			IsExecutable: isExecutable,
-		})
-	}
-
-	c.JSON(http.StatusOK, files)
-}
-
-// ReadFile handles GET /files/content
-func ReadFile(c *gin.Context) {
-	requestPath := c.Query("path")
-	if requestPath == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
-		return
-	}
-
-	fullPath, err := sanitizePath(requestPath)
-	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Read first 512 bytes to detect content type
-	file, err := os.Open(fullPath)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to open file: %v", err)})
-		return
-	}
-	defer file.Close()
-
-	// Detect MIME type
-	mime, err := mimetype.DetectReader(file)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to detect file type: %v", err)})
-		return
-	}
-
-	// Check if it's a text file
-	isText := strings.HasPrefix(mime.String(), "text/") ||
-		mime.String() == "application/json" ||
-		mime.String() == "application/javascript" ||
-		mime.String() == "application/xml" ||
-		mime.String() == "application/x-yaml" ||
-		strings.HasSuffix(strings.ToLower(requestPath), ".md") ||
-		strings.HasSuffix(strings.ToLower(requestPath), ".txt")
-
-	if !isText {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Cannot edit binary file",
-			"mime":  mime.String(),
-		})
-		return
-	}
-
-	// Reset file pointer to beginning
-	_, err = file.Seek(0, 0)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to read file: %v", err)})
-		return
-	}
-
-	content, err := io.ReadAll(file)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to read file: %v", err)})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"content": string(content)})
-}
-
-// WriteFile handles POST /files/content
-func WriteFile(c *gin.Context) {
-	var req struct {
-		Path    string `json:"path"`
-		Content string `json:"content"`
-	}
-
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
-		return
-	}
-
-	fullPath, err := sanitizePath(req.Path)
-	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-		return
-	}
-
-	err = os.WriteFile(fullPath, []byte(req.Content), 0644)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to write file: %v", err)})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "file updated successfully"})
-}
-
-// CreateDirectory handles POST /files/directory
-func CreateDirectory(c *gin.Context) {
-	var req struct {
-		Path string `json:"path"`
-	}
-
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
-		return
-	}
-
-	fullPath, err := sanitizePath(req.Path)
-	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-		return
-	}
-
-	err = os.MkdirAll(fullPath, 0755)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to create directory: %v", err)})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "directory created successfully"})
-}
-
-// DeletePath handles DELETE /files
-func DeletePath(c *gin.Context) {
-	requestPath := c.Query("path")
-	if requestPath == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
-		return
-	}
-
-	fullPath, err := sanitizePath(requestPath)
-	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-		return
-	}
-
-	err = os.RemoveAll(fullPath)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to delete: %v", err)})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "deleted successfully"})
-}
-
-// MovePath handles POST /files/move
-func MovePath(c *gin.Context) {
-	var req struct {
-		Source      string `json:"source"`
-		Destination string `json:"destination"`
-	}
-
-	if err := c.BindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
-		return
-	}
-
-	sourcePath, err := sanitizePath(req.Source)
-	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-		return
-	}
-
-	destPath, err := sanitizePath(req.Destination)
-	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-		return
-	}
-
-	err = os.Rename(sourcePath, destPath)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to move: %v", err)})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "moved successfully"})
-}
-
-// DownloadFile handles GET /files/download
-func DownloadFile(c *gin.Context) {
-	requestPath := c.Query("path")
-	if requestPath == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
-		return
-	}
-
-	fullPath, err := sanitizePath(requestPath)
-	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-		return
-	}
-
-	info, err := os.Stat(fullPath)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to get file info: %v", err)})
-		return
-	}
-
-	if info.IsDir() {
-		// For directories, create a zip file
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s.zip", filepath.Base(fullPath)))
-		c.Header("Content-Type", "application/zip")
-
-		// Create a zip writer
-		err = createZipFromDir(c.Writer, fullPath)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to create zip: %v", err)})
-			return
-		}
-	} else {
-		// For single files, send directly
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filepath.Base(fullPath)))
-		c.File(fullPath)
-	}
-}
-
-// extractZip extracts a zip file to the specified destination
-func extractZip(zipFile string, destination string) error {
-	reader, err := zip.OpenReader(zipFile)
-	if err != nil {
-		return err
-	}
-	defer reader.Close()
-
-	for _, file := range reader.File {
-		// Sanitize file path to prevent zip slip
-		filePath := filepath.Join(destination, file.Name)
-		if !strings.HasPrefix(filePath, destination) {
-			continue // Skip files that would be extracted outside destination
-		}
-
-		if file.FileInfo().IsDir() {
-			os.MkdirAll(filePath, 0755)
-			continue
-		}
-
-		// Create directory for file if it doesn't exist
-		if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
-			return err
-		}
-
-		// Create file
-		dstFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
-		if err != nil {
-			return err
-		}
-
-		// Open file in zip
-		srcFile, err := file.Open()
-		if err != nil {
-			dstFile.Close()
-			return err
-		}
-
-		// Copy contents
-		_, err = io.Copy(dstFile, srcFile)
-		dstFile.Close()
-		srcFile.Close()
-		if err != nil {
-			return err
-		}
-	}
+	// File endpoints
+	router.GET("/files", handler.listFiles())
+	router.GET("/files/content", handler.readFile())
+	router.POST("/files/content", middleware.RequireRole("admin"), handler.writeFile())
+	router.POST("/files/directory", middleware.RequireRole("admin"), handler.createDirectory())
+	router.DELETE("/files", middleware.RequireRole("admin"), handler.deletePath())
+	router.POST("/files/move", middleware.RequireRole("admin"), handler.movePath())
+	router.GET("/files/download", handler.downloadFile())
+	router.POST("/files/upload", middleware.RequireRole("admin"), handler.uploadFile())
 
 	return nil
 }
 
-// UploadFile handles POST /files/upload
-func UploadFile(c *gin.Context) {
-	destination := c.PostForm("path")
-	if destination == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
-		return
-	}
+func (h *FileHandler) listFiles() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		requestPath := c.Query("path")
+		if requestPath == "" {
+			requestPath = "/"
+		}
 
-	fullPath, err := sanitizePath(destination)
-	if err != nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
-		return
-	}
-
-	file, err := c.FormFile("file")
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "no file uploaded"})
-		return
-	}
-
-	// Create destination directory if it doesn't exist
-	err = os.MkdirAll(fullPath, 0755)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to create directory: %v", err)})
-		return
-	}
-
-	filePath := filepath.Join(fullPath, file.Filename)
-
-	// Save the file
-	if err := c.SaveUploadedFile(file, filePath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to save file: %v", err)})
-		return
-	}
-
-	// Check if the file is a zip file
-	mime, err := mimetype.DetectFile(filePath)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to detect file type: %v", err)})
-		return
-	}
-
-	if mime.String() == "application/zip" {
-		// Extract the zip file
-		err = extractZip(filePath, fullPath)
+		files, err := h.cli.ListFiles(requestPath)
 		if err != nil {
-			// Clean up the zip file if extraction fails
-			os.Remove(filePath)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to extract zip file: %v", err)})
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
-		// Remove the original zip file after successful extraction
-		os.Remove(filePath)
-		c.JSON(http.StatusOK, gin.H{"message": "zip file extracted successfully"})
-		return
-	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "file uploaded successfully"})
+		c.JSON(http.StatusOK, files)
+	}
 }
 
-func createZipFromDir(writer io.Writer, dir string) error {
-	zipWriter := zip.NewWriter(writer)
-	defer zipWriter.Close()
+func (h *FileHandler) readFile() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		requestPath := c.Query("path")
+		if requestPath == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
+			return
+		}
 
-	// Walk through the directory
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		content, mime, err := h.cli.ReadFile(requestPath)
 		if err != nil {
-			return err
-		}
-
-		// Create a zip header
-		header, err := zip.FileInfoHeader(info)
-		if err != nil {
-			return err
-		}
-
-		// Set the header name to be relative to the directory being zipped
-		relPath, err := filepath.Rel(dir, path)
-		if err != nil {
-			return err
-		}
-		if relPath == "." {
-			return nil
-		}
-		header.Name = relPath
-
-		if info.IsDir() {
-			header.Name += "/"
-		} else {
-			header.Method = zip.Deflate
-		}
-
-		writer, err := zipWriter.CreateHeader(header)
-		if err != nil {
-			return err
-		}
-
-		if !info.IsDir() {
-			file, err := os.Open(path)
-			if err != nil {
-				return err
+			if mime != "" {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"error": err.Error(),
+					"mime":  mime,
+				})
+				return
 			}
-			defer file.Close()
-			_, err = io.Copy(writer, file)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
 		}
-		return err
-	})
 
-	return err
+		c.JSON(http.StatusOK, gin.H{"content": content})
+	}
+}
+
+func (h *FileHandler) writeFile() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Path    string `json:"path"`
+			Content string `json:"content"`
+		}
+
+		if err := c.BindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+			return
+		}
+
+		err := h.cli.WriteFile(req.Path, req.Content)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "file updated successfully"})
+	}
+}
+
+func (h *FileHandler) createDirectory() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Path string `json:"path"`
+		}
+
+		if err := c.BindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+			return
+		}
+
+		err := h.cli.CreateDirectory(req.Path)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "directory created successfully"})
+	}
+}
+
+func (h *FileHandler) deletePath() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		requestPath := c.Query("path")
+		if requestPath == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
+			return
+		}
+
+		err := h.cli.DeletePath(requestPath)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "deleted successfully"})
+	}
+}
+
+func (h *FileHandler) movePath() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var req struct {
+			Source      string `json:"source"`
+			Destination string `json:"destination"`
+		}
+
+		if err := c.BindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+			return
+		}
+
+		err := h.cli.MovePath(req.Source, req.Destination)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "moved successfully"})
+	}
+}
+
+func (h *FileHandler) downloadFile() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		requestPath := c.Query("path")
+		if requestPath == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
+			return
+		}
+
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", requestPath))
+		err := h.cli.DownloadFile(requestPath, c.Writer)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+}
+
+func (h *FileHandler) uploadFile() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		destination := c.PostForm("path")
+		if destination == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "path is required"})
+			return
+		}
+
+		file, err := c.FormFile("file")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "no file uploaded"})
+			return
+		}
+
+		src, err := file.Open()
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to open uploaded file: %v", err)})
+			return
+		}
+		defer src.Close()
+
+		err = h.cli.UploadFile(destination, file.Filename, src)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "file uploaded successfully"})
+	}
 }

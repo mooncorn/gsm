@@ -98,10 +98,10 @@ export const dockerApi = {
   },
 
   streamDockerEvents: () => {
-    return createEventSource("/docker/events");
+    return createEventSource("/docker/events-stream");
   },
 
   streamContainerLogs: (id: string) => {
-    return createEventSource(`/docker/containers/${id}/logs/stream`);
+    return createEventSource(`/docker/containers/${id}/logs-stream`);
   },
 };

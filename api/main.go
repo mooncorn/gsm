@@ -1,8 +1,8 @@
 package main
 
 import (
-	"gsm/handlers"
-	middlewares "gsm/middleware"
+	handlers "gsm/handlers"
+	middleware "gsm/middleware"
 	"log"
 	"os"
 	"strings"
@@ -15,6 +15,8 @@ import (
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
+
+const DATABASE_PATH = "/gsm/app.db"
 
 func main() {
 	// Load environment variables
@@ -42,78 +44,48 @@ func main() {
 		AllowCredentials: true, // Allow cookies to be sent with the requests
 	}))
 
-	// Create a separate group for SSE endpoints with modified middleware
+	// Set SSE group headers
 	sseGroup := r.Group("")
 	sseGroup.Use(func(c *gin.Context) {
-		// Set SSE headers before authentication
 		c.Header("Content-Type", "text/event-stream")
 		c.Header("Cache-Control", "no-cache")
 		c.Header("Connection", "keep-alive")
-
-		// Continue with authentication
-		middlewares.CheckUser(c)
-		if c.IsAborted() {
-			return
-		}
-		middlewares.RequireUser(c)
 	})
 
-	// Move SSE endpoints to the SSE group
-	sseGroup.GET("/docker/containers/:id/logs/stream", handlers.LogsStream)
-	sseGroup.GET("/docker/events", handlers.StreamDockerEvents)
-	sseGroup.GET("/system/resources/stream", handlers.StreamSystemResources)
-
-	// Docker Routes (non-SSE)
-	r.POST("/docker/containers", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.ContainerCreate)
-	r.PUT("/docker/containers/:id", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.UpdateContainer)
-	r.GET("/docker/containers", middlewares.CheckUser, middlewares.RequireUser, handlers.ContainerList)
-	r.GET("/docker/containers/:id", middlewares.CheckUser, middlewares.RequireUser, handlers.InspectContainer)
-	r.GET("/docker/containers/:id/logs", middlewares.CheckUser, middlewares.RequireUser, handlers.Logs)
-	r.POST("/docker/containers/:id/start", middlewares.CheckUser, middlewares.RequireUser, handlers.Start)
-	r.POST("/docker/containers/:id/stop", middlewares.CheckUser, middlewares.RequireUser, handlers.Stop)
-	r.POST("/docker/containers/:id/restart", middlewares.CheckUser, middlewares.RequireUser, handlers.Restart)
-	r.DELETE("/docker/containers/:id", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.RemoveContainer)
-	r.POST("/docker/containers/:id/exec", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.ExecInContainer)
-
-	r.GET("/docker/images", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.ImageList)
-	r.GET("/docker/images/pull", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.PullImage)
-	r.DELETE("/docker/images/:id", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.RemoveImage)
-
-	r.GET("/docker/connections", handlers.GetContainerConnections)
-
-	// OAuth Routes
 	r.GET("/signin", handlers.Login)
 	r.GET("/signout", handlers.SignOut)
 	r.GET("/callback", func(ctx *gin.Context) {
 		handlers.OAuthCallback(ctx, db)
 	})
-	r.GET("/user", middlewares.CheckUser, func(ctx *gin.Context) {
+
+	r.Use(middleware.CheckUser, middleware.RequireUser)
+
+	// Register Docker handlers
+	handlers.RegisterDockerHandlers(r, sseGroup)
+	handlers.RegisterFileHandlers(r)
+
+	// Move SSE endpoints to the SSE group
+	sseGroup.GET("/system/resources/stream", handlers.StreamSystemResources)
+
+	// OAuth Routes
+
+	r.GET("/user", middleware.CheckUser, func(ctx *gin.Context) {
 		handlers.GetUser(ctx, db)
 	})
 
 	// User Management Routes
-	r.GET("/users/allowed", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), func(ctx *gin.Context) {
+	r.GET("/users/allowed", middleware.CheckUser, middleware.RequireUser, middleware.RequireRole("admin"), func(ctx *gin.Context) {
 		handlers.ListAllowedUsers(ctx, db)
 	})
-	r.POST("/users/allowed", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), func(ctx *gin.Context) {
+	r.POST("/users/allowed", middleware.CheckUser, middleware.RequireUser, middleware.RequireRole("admin"), func(ctx *gin.Context) {
 		handlers.AddAllowedUser(ctx, db)
 	})
-	r.DELETE("/users/allowed/:email", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), func(ctx *gin.Context) {
+	r.DELETE("/users/allowed/:email", middleware.CheckUser, middleware.RequireUser, middleware.RequireRole("admin"), func(ctx *gin.Context) {
 		handlers.RemoveAllowedUser(ctx, db)
 	})
 
 	// System Routes
-	r.GET("/system/resources", middlewares.CheckUser, middlewares.RequireUser, handlers.GetSystemResources)
-
-	// File Routes
-	r.GET("/files", middlewares.CheckUser, middlewares.RequireUser, handlers.ListFiles)
-	r.GET("/files/content", middlewares.CheckUser, middlewares.RequireUser, handlers.ReadFile)
-	r.POST("/files/content", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.WriteFile)
-	r.POST("/files/directory", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.CreateDirectory)
-	r.DELETE("/files", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.DeletePath)
-	r.POST("/files/move", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.MovePath)
-	r.GET("/files/download", middlewares.CheckUser, middlewares.RequireUser, handlers.DownloadFile)
-	r.POST("/files/upload", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.UploadFile)
+	r.GET("/system/resources", middleware.CheckUser, middleware.RequireUser, handlers.GetSystemResources)
 
 	if strings.ToLower(os.Getenv("APP_ENV")) == "production" {
 		certFile := os.Getenv("SSL_CERT_FILE")

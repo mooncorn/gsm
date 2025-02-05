@@ -15,4 +15,4 @@ services:
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/run/docker.sock:/var/run/docker.sock
-      - /gsm/shared:/gsm/shared
+      - $HOME/gsm:/gsm
