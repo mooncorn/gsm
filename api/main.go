@@ -1,10 +1,11 @@
 package main
 
 import (
-	"gsm/handlers"
-	middlewares "gsm/middleware"
+	"fmt"
+	"gsm/config"
+	handlers "gsm/handlers"
 	"log"
-	"os"
+	"path"
 	"strings"
 
 	"gsm/models"
@@ -16,117 +17,35 @@ import (
 	"gorm.io/gorm"
 )
 
-func main() {
-	// Load environment variables
-	loadEnv()
+const DATABASE_NAME = "app.db"
 
-	// Initialize database and migrate models
+func main() {
+	loadEnv()
+	cfg := config.Get()
+
 	db := initializeDatabase()
 
-	// Allow admin user to login
-	if err := db.Where("email = ?", os.Getenv("ADMIN_EMAIL")).First(&models.AllowedUser{}).Error; err != nil {
-		db.Create(&models.AllowedUser{Email: os.Getenv("ADMIN_EMAIL"), Role: "admin"})
+	if err := db.Where("email = ?", cfg.AdminEmail).First(&models.AllowedUser{}).Error; err != nil {
+		db.Create(&models.AllowedUser{Email: cfg.AdminEmail, Role: "admin"})
 		log.Println("Allowed admin user created")
 	}
 
-	// Set Gin mode based on environment
-	setGinMode()
-
 	r := gin.Default()
 
-	// Configure CORS
+	setGinMode()
+	configureCors(r)
+	registerRoutes(r, db)
+	startServer(r)
+}
+
+func configureCors(r *gin.Engine) {
+	cfg := config.Get()
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{os.Getenv("ALLOW_ORIGIN")},
+		AllowOrigins:     []string{cfg.AllowOrigin},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Cache-Control", "Connection", "Transfer-Encoding"},
-		AllowCredentials: true, // Allow cookies to be sent with the requests
+		AllowCredentials: true,
 	}))
-
-	// Create a separate group for SSE endpoints with modified middleware
-	sseGroup := r.Group("")
-	sseGroup.Use(func(c *gin.Context) {
-		// Set SSE headers before authentication
-		c.Header("Content-Type", "text/event-stream")
-		c.Header("Cache-Control", "no-cache")
-		c.Header("Connection", "keep-alive")
-
-		// Continue with authentication
-		middlewares.CheckUser(c)
-		if c.IsAborted() {
-			return
-		}
-		middlewares.RequireUser(c)
-	})
-
-	// Move SSE endpoints to the SSE group
-	sseGroup.GET("/docker/containers/:id/logs/stream", handlers.LogsStream)
-	sseGroup.GET("/docker/events", handlers.StreamDockerEvents)
-	sseGroup.GET("/system/resources/stream", handlers.StreamSystemResources)
-
-	// Docker Routes (non-SSE)
-	r.POST("/docker/containers", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.ContainerCreate)
-	r.PUT("/docker/containers/:id", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.UpdateContainer)
-	r.GET("/docker/containers", middlewares.CheckUser, middlewares.RequireUser, handlers.ContainerList)
-	r.GET("/docker/containers/:id", middlewares.CheckUser, middlewares.RequireUser, handlers.InspectContainer)
-	r.GET("/docker/containers/:id/logs", middlewares.CheckUser, middlewares.RequireUser, handlers.Logs)
-	r.POST("/docker/containers/:id/start", middlewares.CheckUser, middlewares.RequireUser, handlers.Start)
-	r.POST("/docker/containers/:id/stop", middlewares.CheckUser, middlewares.RequireUser, handlers.Stop)
-	r.POST("/docker/containers/:id/restart", middlewares.CheckUser, middlewares.RequireUser, handlers.Restart)
-	r.DELETE("/docker/containers/:id", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.RemoveContainer)
-	r.POST("/docker/containers/:id/exec", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.ExecInContainer)
-
-	r.GET("/docker/images", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.ImageList)
-	r.GET("/docker/images/pull", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.PullImage)
-	r.DELETE("/docker/images/:id", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.RemoveImage)
-
-	r.GET("/docker/connections", handlers.GetContainerConnections)
-
-	// OAuth Routes
-	r.GET("/signin", handlers.Login)
-	r.GET("/signout", handlers.SignOut)
-	r.GET("/callback", func(ctx *gin.Context) {
-		handlers.OAuthCallback(ctx, db)
-	})
-	r.GET("/user", middlewares.CheckUser, func(ctx *gin.Context) {
-		handlers.GetUser(ctx, db)
-	})
-
-	// User Management Routes
-	r.GET("/users/allowed", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), func(ctx *gin.Context) {
-		handlers.ListAllowedUsers(ctx, db)
-	})
-	r.POST("/users/allowed", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), func(ctx *gin.Context) {
-		handlers.AddAllowedUser(ctx, db)
-	})
-	r.DELETE("/users/allowed/:email", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), func(ctx *gin.Context) {
-		handlers.RemoveAllowedUser(ctx, db)
-	})
-
-	// System Routes
-	r.GET("/system/resources", middlewares.CheckUser, middlewares.RequireUser, handlers.GetSystemResources)
-
-	// File Routes
-	r.GET("/files", middlewares.CheckUser, middlewares.RequireUser, handlers.ListFiles)
-	r.GET("/files/content", middlewares.CheckUser, middlewares.RequireUser, handlers.ReadFile)
-	r.POST("/files/content", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.WriteFile)
-	r.POST("/files/directory", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.CreateDirectory)
-	r.DELETE("/files", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.DeletePath)
-	r.POST("/files/move", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.MovePath)
-	r.GET("/files/download", middlewares.CheckUser, middlewares.RequireUser, handlers.DownloadFile)
-	r.POST("/files/upload", middlewares.CheckUser, middlewares.RequireUser, middlewares.RequireRole("admin"), handlers.UploadFile)
-
-	if strings.ToLower(os.Getenv("APP_ENV")) == "production" {
-		certFile := os.Getenv("SSL_CERT_FILE")
-		keyFile := os.Getenv("SSL_KEY_FILE")
-
-		if err := r.RunTLS(":8080", certFile, keyFile); err != nil {
-			log.Fatalf("Failed to start server on 8080: %v", err)
-		}
-	} else {
-		if err := r.Run(":8080"); err != nil {
-			log.Fatalf("Failed to start server on 8080: %v", err)
-		}
-	}
 }
 
 func loadEnv() {
@@ -136,7 +55,8 @@ func loadEnv() {
 }
 
 func initializeDatabase() *gorm.DB {
-	db, err := gorm.Open(sqlite.Open("app.db"), &gorm.Config{})
+	fmt.Println(getDatabasePath())
+	db, err := gorm.Open(sqlite.Open(getDatabasePath()), &gorm.Config{})
 
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
@@ -153,7 +73,52 @@ func initializeDatabase() *gorm.DB {
 }
 
 func setGinMode() {
-	if strings.ToLower(os.Getenv("APP_ENV")) == "production" {
+	if strings.ToLower(config.Get().AppEnv) == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
+}
+
+func registerRoutes(r *gin.Engine, db *gorm.DB) {
+	// Register Auth handlers
+	authHandler := handlers.NewAuthHandler(db)
+	authHandler.RegisterAuthHandlers(r.Group("/auth"))
+
+	// Register Docker handlers
+	dockerHandler, err := handlers.NewDockerHandler()
+	if err != nil {
+		log.Fatalf("Failed to create docker handler: %v", err)
+	}
+	dockerHandler.RegisterDockerHandlers(r.Group("/docker"))
+
+	// Register File handlers
+	fileHandler, err := handlers.NewFileHandler()
+	if err != nil {
+		log.Fatalf("Failed to create file handler: %v", err)
+	}
+	fileHandler.RegisterFileHandlers(r.Group("/files"))
+
+	// Register System handlers
+	handlers.RegisterSystemRoutes(r.Group("/system"))
+
+	// User Management Routes
+	usersHandler := handlers.NewUsersHandler(db)
+	usersHandler.RegisterUsersRoutes(r.Group("/users"))
+}
+
+func startServer(r *gin.Engine) {
+	cfg := config.Get()
+	if strings.ToLower(cfg.AppEnv) == "production" {
+		if err := r.RunTLS(fmt.Sprintf(":%s", cfg.Port), cfg.SSLCertFile, cfg.SSLKeyFile); err != nil {
+			log.Fatalf("Failed to start server on %s: %v", cfg.Port, err)
+		}
+	} else {
+		if err := r.Run(fmt.Sprintf(":%s", cfg.Port)); err != nil {
+			log.Fatalf("Failed to start server on %s: %v", cfg.Port, err)
+		}
+	}
+}
+
+func getDatabasePath() string {
+	cfg := config.Get()
+	return path.Join(cfg.DataDir, DATABASE_NAME)
 }
