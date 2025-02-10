@@ -21,7 +21,7 @@ type DockerHandler struct {
 
 func NewDockerHandler() (*DockerHandler, error) {
 	cfg := config.Get()
-	volumesDir := path.Join(cfg.DataDir, "volumes")
+	volumesDir := path.Join(cfg.HostHomeDir, cfg.DataDir, cfg.VolumeDir)
 
 	cli, err := docker.NewClient(volumesDir)
 	if err != nil {

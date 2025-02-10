@@ -7,6 +7,7 @@ import (
 	middleware "gsm/middleware"
 	"net/http"
 	"path"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -17,7 +18,13 @@ type FileHandler struct {
 
 func NewFileHandler() (*FileHandler, error) {
 	cfg := config.Get()
-	volumesDir := path.Join(cfg.DataDir, "volumes")
+
+	var volumesDir string
+	if strings.ToLower(cfg.AppEnv) == "production" {
+		volumesDir = path.Join(cfg.DataDir, cfg.VolumeDir)
+	} else {
+		volumesDir = path.Join(cfg.HostHomeDir, cfg.DataDir, cfg.VolumeDir)
+	}
 
 	cli := files.NewClient(volumesDir)
 	return &FileHandler{cli: cli}, nil

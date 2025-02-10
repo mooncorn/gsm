@@ -2,13 +2,15 @@ package config
 
 import (
 	"os"
-	"path"
 )
 
 type Config struct {
 	AppEnv         string
 	Port           string
 	DataDir        string
+	HostHomeDir    string
+	VolumeDir      string
+	DBFilename     string
 	AllowOrigin    string
 	CookieDomain   string
 	SSLCertFile    string
@@ -27,7 +29,10 @@ func Get() *Config {
 		cfg = &Config{
 			AppEnv:         getEnvOrDefault("APP_ENV", "development"),
 			Port:           getEnvOrDefault("PORT", "8080"),
-			DataDir:        getEnvOrDefault("DATA_DIR", path.Join(os.Getenv("HOME"), "gsm-data")),
+			HostHomeDir:    getEnvOrDefault("HOST_HOME_DIR", os.Getenv("HOME")),
+			DataDir:        getEnvOrDefault("DATA_DIR", "/gsm-data"),
+			VolumeDir:      getEnvOrDefault("VOLUME_DIR", "/volumes"),
+			DBFilename:     getEnvOrDefault("DB_FILENAME", "app.db"),
 			AllowOrigin:    getEnvOrDefault("ALLOW_ORIGIN", "http://localhost:5173"),
 			CookieDomain:   getEnvOrDefault("COOKIE_DOMAIN", "localhost"),
 			SSLCertFile:    os.Getenv("SSL_CERT_FILE"),

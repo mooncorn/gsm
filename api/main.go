@@ -120,5 +120,10 @@ func startServer(r *gin.Engine) {
 
 func getDatabasePath() string {
 	cfg := config.Get()
-	return path.Join(cfg.DataDir, DATABASE_NAME)
+
+	if strings.ToLower(cfg.AppEnv) == "production" {
+		return path.Join(cfg.DataDir, DATABASE_NAME)
+	}
+
+	return path.Join(cfg.HostHomeDir, cfg.DataDir, DATABASE_NAME)
 }
