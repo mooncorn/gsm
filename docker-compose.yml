@@ -16,4 +16,4 @@ services:
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/run/docker.sock:/var/run/docker.sock
-      - $HOME/gsm-data:/gsm-data
+      - /home/david/gsm-data:/gsm-data
