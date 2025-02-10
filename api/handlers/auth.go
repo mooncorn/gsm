@@ -3,9 +3,10 @@ package handlers
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"gsm/config"
+	middleware "gsm/middleware"
 	"gsm/models"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -18,8 +19,29 @@ import (
 	"gorm.io/gorm"
 )
 
-var SECURE = strings.ToLower(os.Getenv("APP_ENV")) == "production"
-var SAME_SITE = getSameSite()
+type authHandler struct {
+	db           *gorm.DB
+	oauth2Config oauth2.Config
+	secure       bool
+	sameSite     http.SameSite
+}
+
+func NewAuthHandler(db *gorm.DB) *authHandler {
+	cfg := config.Get()
+
+	secure := strings.ToLower(cfg.AppEnv) == "production"
+	sameSite := getSameSite()
+
+	return &authHandler{db: db, oauth2Config: initOAuthConfig(), secure: secure, sameSite: sameSite}
+}
+
+// RegisterAuthHandlers registers all auth-related handlers with the given router groups
+func (h *authHandler) RegisterAuthHandlers(rg *gin.RouterGroup) {
+	rg.GET("/", middleware.CheckUser, h.getUser)
+	rg.GET("/signin", h.googleSignIn)
+	rg.GET("/signout", h.signOut)
+	rg.GET("/callback", h.googleOAuthCallback)
+}
 
 func generateState() string {
 	b := make([]byte, 32) // 32 bytes should be sufficient
@@ -31,10 +53,12 @@ func generateState() string {
 }
 
 func initOAuthConfig() oauth2.Config {
+	cfg := config.Get()
+
 	return oauth2.Config{
-		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
-		ClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
-		RedirectURL:  os.Getenv("GOOGLE_REDIRECT_URL"), // Make sure this matches your redirect URI
+		ClientID:     cfg.GoogleClientID,
+		ClientSecret: cfg.GoogleSecret,
+		RedirectURL:  cfg.GoogleRedirect, // Make sure this matches your redirect URI
 		Scopes: []string{
 			"https://www.googleapis.com/auth/userinfo.email",
 			"https://www.googleapis.com/auth/userinfo.profile",
@@ -43,19 +67,21 @@ func initOAuthConfig() oauth2.Config {
 	}
 }
 
-func Login(c *gin.Context) {
+func (h *authHandler) googleSignIn(c *gin.Context) {
+	cfg := config.Get()
 	oauth2Config := initOAuthConfig()
 
 	oauth2State := generateState()
-	c.SetSameSite(SAME_SITE)
-	c.SetCookie("csrf", oauth2State, 3600, "/", os.Getenv("COOKIE_DOMAIN"), SECURE, true) // Set cookie for 1 hour
+	c.SetSameSite(h.sameSite)
+	c.SetCookie("csrf", oauth2State, 3600, "/", cfg.CookieDomain, h.secure, true) // Set cookie for 1 hour
 
 	// Redirect the user to Google's OAuth consent screen
 	authURL := oauth2Config.AuthCodeURL(oauth2State, oauth2.AccessTypeOffline)
 	c.Redirect(http.StatusFound, authURL)
 }
 
-func OAuthCallback(c *gin.Context, db *gorm.DB) {
+func (h *authHandler) googleOAuthCallback(c *gin.Context) {
+	cfg := config.Get()
 	oauth2Config := initOAuthConfig()
 
 	// Validate the state parameter to protect against CSRF attacks
@@ -85,7 +111,7 @@ func OAuthCallback(c *gin.Context, db *gorm.DB) {
 	}
 
 	// Validate the ID token
-	payload, err := idtoken.Validate(c, token.Extra("id_token").(string), os.Getenv("GOOGLE_CLIENT_ID"))
+	payload, err := idtoken.Validate(c, token.Extra("id_token").(string), cfg.GoogleClientID)
 	if err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid ID token"})
 		return
@@ -102,7 +128,7 @@ func OAuthCallback(c *gin.Context, db *gorm.DB) {
 
 	// Check if the user is allowed to sign in
 	var allowedUser models.AllowedUser
-	if err := db.Where("email = ?", email).First(&allowedUser).Error; err != nil {
+	if err := h.db.Where("email = ?", email).First(&allowedUser).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not allowed to sign in"})
 		return
 	}
@@ -115,9 +141,9 @@ func OAuthCallback(c *gin.Context, db *gorm.DB) {
 	}
 
 	var existingUser models.User
-	if err := db.Where("email = ?", user.Email).First(&existingUser).Error; err != nil {
+	if err := h.db.Where("email = ?", user.Email).First(&existingUser).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			if err := db.Create(&user).Error; err != nil {
+			if err := h.db.Create(&user).Error; err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create user"})
 				return
 			}
@@ -126,7 +152,7 @@ func OAuthCallback(c *gin.Context, db *gorm.DB) {
 			return
 		}
 	} else {
-		if err := db.Model(&existingUser).Updates(user).Error; err != nil {
+		if err := h.db.Model(&existingUser).Updates(user).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not update user"})
 			return
 		}
@@ -140,19 +166,19 @@ func OAuthCallback(c *gin.Context, db *gorm.DB) {
 		"picture": user.Picture,
 		"exp":     time.Now().Add(time.Hour * 72).Unix(),
 	})
-	tokenString, err := jwtToken.SignedString([]byte(os.Getenv("JWT_SECRET")))
+	tokenString, err := jwtToken.SignedString([]byte(cfg.JWTSecret))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not generate token"})
 		return
 	}
 
-	c.SetSameSite(SAME_SITE)
-	c.SetCookie("token", tokenString, 86400, "/", os.Getenv("COOKIE_DOMAIN"), SECURE, true) // Set cookie for 1 day
+	c.SetSameSite(h.sameSite)
+	c.SetCookie("token", tokenString, 86400, "/", cfg.CookieDomain, h.secure, true) // Set cookie for 1 day
 
-	c.Redirect(http.StatusFound, os.Getenv("ALLOW_ORIGIN"))
+	c.Redirect(http.StatusFound, cfg.AllowOrigin)
 }
 
-func GetUser(c *gin.Context, db *gorm.DB) {
+func (h *authHandler) getUser(c *gin.Context) {
 	// Retrieve the user email from the context
 	userEmail, exists := c.Get("userEmail")
 	if !exists {
@@ -169,7 +195,7 @@ func GetUser(c *gin.Context, db *gorm.DB) {
 
 	// Fetch the user information from the database
 	var user models.User
-	if err := db.Where("email = ?", email).First(&user).Error; err != nil {
+	if err := h.db.Where("email = ?", email).First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
 		} else {
@@ -183,8 +209,9 @@ func GetUser(c *gin.Context, db *gorm.DB) {
 }
 
 func getSameSite() http.SameSite {
+	cfg := config.Get()
 	var sameSite http.SameSite
-	if strings.ToLower(os.Getenv("APP_ENV")) == "production" {
+	if strings.ToLower(cfg.AppEnv) == "production" {
 		sameSite = http.SameSiteNoneMode
 	} else {
 		sameSite = http.SameSiteLaxMode
@@ -192,9 +219,10 @@ func getSameSite() http.SameSite {
 	return sameSite
 }
 
-func SignOut(c *gin.Context) {
-	c.SetSameSite(SAME_SITE)
-	c.SetCookie("token", "", -1, "/", os.Getenv("COOKIE_DOMAIN"), SECURE, true) // Set cookie with an expired date
+func (h *authHandler) signOut(c *gin.Context) {
+	cfg := config.Get()
+	c.SetSameSite(h.sameSite)
+	c.SetCookie("token", "", -1, "/", cfg.CookieDomain, h.secure, true) // Set cookie with an expired date
 
-	c.Redirect(http.StatusFound, os.Getenv("ALLOW_ORIGIN"))
+	c.Redirect(http.StatusFound, cfg.AllowOrigin)
 }

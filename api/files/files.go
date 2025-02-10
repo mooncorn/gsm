@@ -1,4 +1,4 @@
-package docker
+package files
 
 import (
 	"archive/zip"
@@ -11,7 +11,7 @@ import (
 	"github.com/gabriel-vasile/mimetype"
 )
 
-type FileClient interface {
+type Client interface {
 	ListFiles(path string) ([]FileInfo, error)
 	ReadFile(path string) (string, string, error)
 	WriteFile(path string, content string) error
@@ -26,7 +26,7 @@ type fileClient struct {
 	baseDir string
 }
 
-func NewFileClient(baseDir string) FileClient {
+func NewClient(baseDir string) Client {
 	return &fileClient{baseDir: baseDir}
 }
 

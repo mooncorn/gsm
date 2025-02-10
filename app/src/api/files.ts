@@ -7,7 +7,7 @@ import {
 
 export const filesApi = {
   list: async (path?: string) => {
-    const response = await apiClient.get<FileInfoResponseData[]>("/files", {
+    const response = await apiClient.get<FileInfoResponseData[]>("/files/", {
       params: { path },
     });
     return response.data;

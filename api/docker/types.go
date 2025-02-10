@@ -92,15 +92,3 @@ type PortMapping struct {
 	ContainerPort uint16 `json:"containerPort" binding:"required,gt=0"`
 	Protocol      string `json:"protocol" binding:"oneof=tcp udp"`
 }
-
-type FileInfo struct {
-	Name         string    `json:"name"`
-	Path         string    `json:"path"`
-	Size         int64     `json:"size"`
-	IsDir        bool      `json:"isDir"`
-	ModTime      time.Time `json:"modTime"`
-	Permissions  string    `json:"permissions"`
-	IsReadable   bool      `json:"isReadable"`
-	IsWritable   bool      `json:"isWritable"`
-	IsExecutable bool      `json:"isExecutable"`
-}

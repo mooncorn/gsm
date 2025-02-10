@@ -39,15 +39,16 @@ type Client interface {
 }
 
 type dockerClient struct {
-	cli *client.Client
+	cli           *client.Client
+	volumeBaseDir string
 }
 
-func NewClient() (Client, error) {
+func NewClient(volumeBaseDir string) (Client, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create docker client: %v", err)
 	}
-	return &dockerClient{cli: cli}, nil
+	return &dockerClient{cli: cli, volumeBaseDir: volumeBaseDir}, nil
 }
 
 func (d *dockerClient) ListContainers(ctx context.Context) ([]ContainerListItem, error) {
@@ -152,7 +153,7 @@ func (d *dockerClient) InspectContainer(ctx context.Context, id string) (*Contai
 }
 
 func (d *dockerClient) CreateContainer(ctx context.Context, createConfig *ContainerCreate) (string, []string, error) {
-	config, hostConfig, err := createConfig.ToDockerConfig()
+	config, hostConfig, err := createConfig.ToDockerConfig(d.volumeBaseDir)
 	if err != nil {
 		return "", nil, fmt.Errorf("invalid configuration: %v", err)
 	}
@@ -365,7 +366,7 @@ func parseDockerTime(s string) (time.Time, error) {
 	return time.Parse(DOCKER_TIME_LAYOUT, s)
 }
 
-func (r *ContainerCreate) ToDockerConfig() (*container.Config, *container.HostConfig, error) {
+func (r *ContainerCreate) ToDockerConfig(volumeBaseDir string) (*container.Config, *container.HostConfig, error) {
 	// Create port bindings and exposed ports
 	portBindings := make(map[nat.Port][]nat.PortBinding)
 	exposedPorts := make(map[nat.Port]struct{})
@@ -393,8 +394,8 @@ func (r *ContainerCreate) ToDockerConfig() (*container.Config, *container.HostCo
 	if len(r.Volumes) > 0 {
 		volumes = make(map[string]struct{})
 		for _, volume := range r.Volumes {
-			// Create the host path as /gsm/volumes/<container_name>/<path>
-			hostPath := filepath.Join("/gsm/volumes", r.Name, volume)
+			// Create the host path as /volumeBaseDir/<container_name>/<path>
+			hostPath := filepath.Join(volumeBaseDir, r.Name, volume)
 			// Use the original path as container path
 			containerPath := filepath.Join("/", volume)
 
@@ -402,6 +403,8 @@ func (r *ContainerCreate) ToDockerConfig() (*container.Config, *container.HostCo
 			binds = append(binds, fmt.Sprintf("%s:%s", hostPath, containerPath))
 		}
 	}
+
+	fmt.Println("binds", binds)
 
 	// Create container config
 	config := &container.Config{

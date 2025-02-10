@@ -2,42 +2,40 @@ package handlers
 
 import (
 	"fmt"
-	docker "gsm/client"
+	"gsm/config"
+	"gsm/files"
 	middleware "gsm/middleware"
 	"net/http"
+	"path"
 
 	"github.com/gin-gonic/gin"
 )
 
-const BASE_DIR = "/gsm/volumes"
-
 type FileHandler struct {
-	cli docker.FileClient
+	cli files.Client
 }
 
 func NewFileHandler() (*FileHandler, error) {
-	cli := docker.NewFileClient(BASE_DIR)
+	cfg := config.Get()
+	volumesDir := path.Join(cfg.DataDir, "volumes")
+
+	cli := files.NewClient(volumesDir)
 	return &FileHandler{cli: cli}, nil
 }
 
 // RegisterFileHandlers registers all file-related handlers with the given router group
-func RegisterFileHandlers(router gin.IRouter) error {
-	handler, err := NewFileHandler()
-	if err != nil {
-		return fmt.Errorf("failed to create file handler: %v", err)
-	}
+func (h *FileHandler) RegisterFileHandlers(rg *gin.RouterGroup) {
+	rg.Use(middleware.CheckUser, middleware.RequireUser)
 
 	// File endpoints
-	router.GET("/files", handler.listFiles())
-	router.GET("/files/content", handler.readFile())
-	router.POST("/files/content", middleware.RequireRole("admin"), handler.writeFile())
-	router.POST("/files/directory", middleware.RequireRole("admin"), handler.createDirectory())
-	router.DELETE("/files", middleware.RequireRole("admin"), handler.deletePath())
-	router.POST("/files/move", middleware.RequireRole("admin"), handler.movePath())
-	router.GET("/files/download", handler.downloadFile())
-	router.POST("/files/upload", middleware.RequireRole("admin"), handler.uploadFile())
-
-	return nil
+	rg.GET("/", h.listFiles())
+	rg.GET("/content", h.readFile())
+	rg.POST("/content", middleware.RequireRole("admin"), h.writeFile())
+	rg.POST("/directory", middleware.RequireRole("admin"), h.createDirectory())
+	rg.DELETE("/", middleware.RequireRole("admin"), h.deletePath())
+	rg.POST("/move", middleware.RequireRole("admin"), h.movePath())
+	rg.GET("/download", h.downloadFile())
+	rg.POST("/upload", middleware.RequireRole("admin"), h.uploadFile())
 }
 
 func (h *FileHandler) listFiles() gin.HandlerFunc {

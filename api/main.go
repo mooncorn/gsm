@@ -1,10 +1,11 @@
 package main
 
 import (
+	"fmt"
+	"gsm/config"
 	handlers "gsm/handlers"
-	middleware "gsm/middleware"
 	"log"
-	"os"
+	"path"
 	"strings"
 
 	"gsm/models"
@@ -16,89 +17,35 @@ import (
 	"gorm.io/gorm"
 )
 
-const DATABASE_PATH = "/gsm/app.db"
+const DATABASE_NAME = "app.db"
 
 func main() {
-	// Load environment variables
 	loadEnv()
+	cfg := config.Get()
 
-	// Initialize database and migrate models
 	db := initializeDatabase()
 
-	// Allow admin user to login
-	if err := db.Where("email = ?", os.Getenv("ADMIN_EMAIL")).First(&models.AllowedUser{}).Error; err != nil {
-		db.Create(&models.AllowedUser{Email: os.Getenv("ADMIN_EMAIL"), Role: "admin"})
+	if err := db.Where("email = ?", cfg.AdminEmail).First(&models.AllowedUser{}).Error; err != nil {
+		db.Create(&models.AllowedUser{Email: cfg.AdminEmail, Role: "admin"})
 		log.Println("Allowed admin user created")
 	}
 
-	// Set Gin mode based on environment
-	setGinMode()
-
 	r := gin.Default()
 
-	// Configure CORS
+	setGinMode()
+	configureCors(r)
+	registerRoutes(r, db)
+	startServer(r)
+}
+
+func configureCors(r *gin.Engine) {
+	cfg := config.Get()
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{os.Getenv("ALLOW_ORIGIN")},
+		AllowOrigins:     []string{cfg.AllowOrigin},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Cache-Control", "Connection", "Transfer-Encoding"},
-		AllowCredentials: true, // Allow cookies to be sent with the requests
+		AllowCredentials: true,
 	}))
-
-	// Set SSE group headers
-	sseGroup := r.Group("")
-	sseGroup.Use(func(c *gin.Context) {
-		c.Header("Content-Type", "text/event-stream")
-		c.Header("Cache-Control", "no-cache")
-		c.Header("Connection", "keep-alive")
-	})
-
-	r.GET("/signin", handlers.Login)
-	r.GET("/signout", handlers.SignOut)
-	r.GET("/callback", func(ctx *gin.Context) {
-		handlers.OAuthCallback(ctx, db)
-	})
-
-	r.Use(middleware.CheckUser, middleware.RequireUser)
-
-	// Register Docker handlers
-	handlers.RegisterDockerHandlers(r, sseGroup)
-	handlers.RegisterFileHandlers(r)
-
-	// Move SSE endpoints to the SSE group
-	sseGroup.GET("/system/resources/stream", handlers.StreamSystemResources)
-
-	// OAuth Routes
-
-	r.GET("/user", middleware.CheckUser, func(ctx *gin.Context) {
-		handlers.GetUser(ctx, db)
-	})
-
-	// User Management Routes
-	r.GET("/users/allowed", middleware.CheckUser, middleware.RequireUser, middleware.RequireRole("admin"), func(ctx *gin.Context) {
-		handlers.ListAllowedUsers(ctx, db)
-	})
-	r.POST("/users/allowed", middleware.CheckUser, middleware.RequireUser, middleware.RequireRole("admin"), func(ctx *gin.Context) {
-		handlers.AddAllowedUser(ctx, db)
-	})
-	r.DELETE("/users/allowed/:email", middleware.CheckUser, middleware.RequireUser, middleware.RequireRole("admin"), func(ctx *gin.Context) {
-		handlers.RemoveAllowedUser(ctx, db)
-	})
-
-	// System Routes
-	r.GET("/system/resources", middleware.CheckUser, middleware.RequireUser, handlers.GetSystemResources)
-
-	if strings.ToLower(os.Getenv("APP_ENV")) == "production" {
-		certFile := os.Getenv("SSL_CERT_FILE")
-		keyFile := os.Getenv("SSL_KEY_FILE")
-
-		if err := r.RunTLS(":8080", certFile, keyFile); err != nil {
-			log.Fatalf("Failed to start server on 8080: %v", err)
-		}
-	} else {
-		if err := r.Run(":8080"); err != nil {
-			log.Fatalf("Failed to start server on 8080: %v", err)
-		}
-	}
 }
 
 func loadEnv() {
@@ -108,7 +55,7 @@ func loadEnv() {
 }
 
 func initializeDatabase() *gorm.DB {
-	db, err := gorm.Open(sqlite.Open("app.db"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open(getDatabasePath()), &gorm.Config{})
 
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
@@ -125,7 +72,52 @@ func initializeDatabase() *gorm.DB {
 }
 
 func setGinMode() {
-	if strings.ToLower(os.Getenv("APP_ENV")) == "production" {
+	if strings.ToLower(config.Get().AppEnv) == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
+}
+
+func registerRoutes(r *gin.Engine, db *gorm.DB) {
+	// Register Auth handlers
+	authHandler := handlers.NewAuthHandler(db)
+	authHandler.RegisterAuthHandlers(r.Group("/auth"))
+
+	// Register Docker handlers
+	dockerHandler, err := handlers.NewDockerHandler()
+	if err != nil {
+		log.Fatalf("Failed to create docker handler: %v", err)
+	}
+	dockerHandler.RegisterDockerHandlers(r.Group("/docker"))
+
+	// Register File handlers
+	fileHandler, err := handlers.NewFileHandler()
+	if err != nil {
+		log.Fatalf("Failed to create file handler: %v", err)
+	}
+	fileHandler.RegisterFileHandlers(r.Group("/files"))
+
+	// Register System handlers
+	handlers.RegisterSystemRoutes(r.Group("/system"))
+
+	// User Management Routes
+	usersHandler := handlers.NewUsersHandler(db)
+	usersHandler.RegisterUsersRoutes(r.Group("/users"))
+}
+
+func startServer(r *gin.Engine) {
+	cfg := config.Get()
+	if strings.ToLower(cfg.AppEnv) == "production" {
+		if err := r.RunTLS(fmt.Sprintf(":%s", cfg.Port), cfg.SSLCertFile, cfg.SSLKeyFile); err != nil {
+			log.Fatalf("Failed to start server on %s: %v", cfg.Port, err)
+		}
+	} else {
+		if err := r.Run(fmt.Sprintf(":%s", cfg.Port)); err != nil {
+			log.Fatalf("Failed to start server on %s: %v", cfg.Port, err)
+		}
+	}
+}
+
+func getDatabasePath() string {
+	cfg := config.Get()
+	return path.Join(cfg.DataDir, DATABASE_NAME)
 }

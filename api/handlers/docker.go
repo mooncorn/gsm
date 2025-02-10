@@ -4,10 +4,12 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	docker "gsm/client"
+	"gsm/config"
+	"gsm/docker"
 	middleware "gsm/middleware"
 	"io"
 	"net/http"
+	"path"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -18,7 +20,10 @@ type DockerHandler struct {
 }
 
 func NewDockerHandler() (*DockerHandler, error) {
-	cli, err := docker.NewClient()
+	cfg := config.Get()
+	volumesDir := path.Join(cfg.DataDir, "volumes")
+
+	cli, err := docker.NewClient(volumesDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create docker client: %v", err)
 	}
@@ -26,34 +31,29 @@ func NewDockerHandler() (*DockerHandler, error) {
 }
 
 // RegisterDockerHandlers registers all docker-related handlers with the given router groups
-func RegisterDockerHandlers(router gin.IRouter, sseGroup gin.IRouter) error {
-	handler, err := NewDockerHandler()
-	if err != nil {
-		return fmt.Errorf("failed to create docker handler: %v", err)
-	}
+func (h *DockerHandler) RegisterDockerHandlers(rg *gin.RouterGroup) {
+	rg.Use(middleware.CheckUser, middleware.RequireUser)
 
 	// Container endpoints
-	router.GET("/docker/containers", handler.listContainers())
-	router.GET("/docker/containers/:id", handler.inspectContainer())
-	router.POST("/docker/containers", middleware.RequireRole("admin"), handler.createContainer())
-	router.DELETE("/docker/containers/:id", middleware.RequireRole("admin"), handler.removeContainer())
-	router.POST("/docker/containers/:id/start", handler.startContainer())
-	router.POST("/docker/containers/:id/stop", handler.stopContainer())
-	router.POST("/docker/containers/:id/restart", handler.restartContainer())
-	router.GET("/docker/containers/:id/logs", handler.getLogs())
-	sseGroup.GET("/docker/containers/:id/logs-stream", handler.streamLogs())
-	router.POST("/docker/containers/:id/exec", middleware.RequireRole("admin"), handler.execInContainer())
-	router.PUT("/docker/containers/:id", middleware.RequireRole("admin"), handler.updateContainer())
+	rg.GET("/containers", h.listContainers())
+	rg.GET("/containers/:id", h.inspectContainer())
+	rg.POST("/containers", middleware.RequireRole("admin"), h.createContainer())
+	rg.DELETE("/containers/:id", middleware.RequireRole("admin"), h.removeContainer())
+	rg.POST("/containers/:id/start", h.startContainer())
+	rg.POST("/containers/:id/stop", h.stopContainer())
+	rg.POST("/containers/:id/restart", h.restartContainer())
+	rg.GET("/containers/:id/logs", h.getLogs())
+	rg.GET("/containers/:id/logs-stream", h.streamLogs())
+	rg.POST("/containers/:id/exec", middleware.RequireRole("admin"), h.execInContainer())
+	rg.PUT("/containers/:id", middleware.RequireRole("admin"), h.updateContainer())
 
 	// Image endpoints
-	router.GET("/docker/images", middleware.RequireRole("admin"), handler.listImages())
-	router.DELETE("/docker/images/:id", middleware.RequireRole("admin"), handler.removeImage())
-	sseGroup.GET("/docker/images/pull", middleware.RequireRole("admin"), handler.pullImage())
+	rg.GET("/images", middleware.RequireRole("admin"), h.listImages())
+	rg.DELETE("/images/:id", middleware.RequireRole("admin"), h.removeImage())
+	rg.GET("/images/pull", middleware.RequireRole("admin"), h.pullImage())
 
 	// Events endpoint
-	sseGroup.GET("/docker/events-stream", handler.streamDockerEvents())
-
-	return nil
+	rg.GET("/events-stream", h.streamDockerEvents())
 }
 
 func (h *DockerHandler) listContainers() gin.HandlerFunc {
@@ -143,6 +143,10 @@ func (h *DockerHandler) pullImage() gin.HandlerFunc {
 			return
 		}
 		defer pullStream.Close()
+
+		c.Header("Content-Type", "text/event-stream")
+		c.Header("Cache-Control", "no-cache")
+		c.Header("Connection", "keep-alive")
 
 		scanner := bufio.NewScanner(pullStream)
 		for scanner.Scan() {
@@ -236,6 +240,9 @@ func (h *DockerHandler) streamLogs() gin.HandlerFunc {
 		}
 		defer logStream.Close()
 
+		c.Header("Content-Type", "text/event-stream")
+		c.Header("Cache-Control", "no-cache")
+		c.Header("Connection", "keep-alive")
 		c.Writer.WriteHeader(http.StatusOK)
 		c.Writer.Flush()
 
@@ -299,6 +306,9 @@ func (h *DockerHandler) getLogs() gin.HandlerFunc {
 
 func (h *DockerHandler) streamDockerEvents() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		c.Header("Content-Type", "text/event-stream")
+		c.Header("Cache-Control", "no-cache")
+		c.Header("Connection", "keep-alive")
 		c.Writer.WriteHeader(http.StatusOK)
 		c.Writer.Flush()
 

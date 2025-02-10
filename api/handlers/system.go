@@ -5,13 +5,14 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/image"
-	"github.com/docker/docker/client"
 	"github.com/gin-gonic/gin"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/disk"
 	"github.com/shirou/gopsutil/v3/mem"
+)
+
+const (
+	RESOURCES_UPDATE_INTERVAL = 2 * time.Second
 )
 
 type SystemResourcesResponse struct {
@@ -30,11 +31,11 @@ type SystemResourcesResponse struct {
 		Temperature  float64   `json:"temperature"`  // CPU temperature if available
 		Architecture string    `json:"architecture"` // CPU architecture
 	} `json:"cpu"`
-	Docker struct {
-		RunningContainers int `json:"running_containers"` // Number of running containers
-		TotalContainers   int `json:"total_containers"`   // Total number of containers
-		TotalImages       int `json:"total_images"`       // Total number of images
-	} `json:"docker"`
+	// Docker struct {
+	// 	RunningContainers int `json:"running_containers"` // Number of running containers
+	// 	TotalContainers   int `json:"total_containers"`   // Total number of containers
+	// 	TotalImages       int `json:"total_images"`       // Total number of images
+	// } `json:"docker"`
 	Disk struct {
 		Total       uint64  `json:"total"`        // Total disk space in bytes
 		Used        uint64  `json:"used"`         // Used disk space in bytes
@@ -50,7 +51,12 @@ type SystemResourcesResponse struct {
 	} `json:"system"`
 }
 
-func GetSystemResources(c *gin.Context) {
+func RegisterSystemRoutes(rg *gin.RouterGroup) {
+	rg.GET("/resources", getSystemResources)
+	rg.GET("/resources-stream", streamSystemResources)
+}
+
+func getSystemResources(c *gin.Context) {
 	var response SystemResourcesResponse
 
 	// Get memory information
@@ -97,25 +103,25 @@ func GetSystemResources(c *gin.Context) {
 		response.Disk.UsedPercent = diskInfo.UsedPercent
 	}
 
-	// Get Docker information
-	if cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation()); err == nil {
-		defer cli.Close()
+	// // Get Docker information
+	// if cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation()); err == nil {
+	// 	defer cli.Close()
 
-		// Get running containers
-		if containers, err := cli.ContainerList(c, container.ListOptions{All: false}); err == nil {
-			response.Docker.RunningContainers = len(containers)
-		}
+	// 	// Get running containers
+	// 	if containers, err := cli.ContainerList(c, container.ListOptions{All: false}); err == nil {
+	// 		response.Docker.RunningContainers = len(containers)
+	// 	}
 
-		// Get all containers (including stopped)
-		if containers, err := cli.ContainerList(c, container.ListOptions{All: true}); err == nil {
-			response.Docker.TotalContainers = len(containers)
-		}
+	// 	// Get all containers (including stopped)
+	// 	if containers, err := cli.ContainerList(c, container.ListOptions{All: true}); err == nil {
+	// 		response.Docker.TotalContainers = len(containers)
+	// 	}
 
-		// Get all images
-		if images, err := cli.ImageList(c, image.ListOptions{}); err == nil {
-			response.Docker.TotalImages = len(images)
-		}
-	}
+	// 	// Get all images
+	// 	if images, err := cli.ImageList(c, image.ListOptions{}); err == nil {
+	// 		response.Docker.TotalImages = len(images)
+	// 	}
+	// }
 
 	// Get system information
 	response.System.OS = runtime.GOOS
@@ -125,12 +131,12 @@ func GetSystemResources(c *gin.Context) {
 	c.JSON(200, response)
 }
 
-func StreamSystemResources(c *gin.Context) {
+func streamSystemResources(c *gin.Context) {
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 
-	ticker := time.NewTicker(2 * time.Second)
+	ticker := time.NewTicker(RESOURCES_UPDATE_INTERVAL)
 	defer ticker.Stop()
 
 	for {
@@ -170,23 +176,23 @@ func StreamSystemResources(c *gin.Context) {
 				response.Disk.UsedPercent = diskInfo.UsedPercent
 			}
 
-			// Get Docker information
-			if cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation()); err == nil {
-				// Get running containers
-				if containers, err := cli.ContainerList(c, container.ListOptions{All: false}); err == nil {
-					response.Docker.RunningContainers = len(containers)
-				}
+			// // Get Docker information
+			// if cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation()); err == nil {
+			// 	// Get running containers
+			// 	if containers, err := cli.ContainerList(c, container.ListOptions{All: false}); err == nil {
+			// 		response.Docker.RunningContainers = len(containers)
+			// 	}
 
-				// Get all containers (including stopped)
-				if containers, err := cli.ContainerList(c, container.ListOptions{All: true}); err == nil {
-					response.Docker.TotalContainers = len(containers)
-				}
+			// 	// Get all containers (including stopped)
+			// 	if containers, err := cli.ContainerList(c, container.ListOptions{All: true}); err == nil {
+			// 		response.Docker.TotalContainers = len(containers)
+			// 	}
 
-				// Get all images
-				if images, err := cli.ImageList(c, image.ListOptions{}); err == nil {
-					response.Docker.TotalImages = len(images)
-				}
-			}
+			// 	// Get all images
+			// 	if images, err := cli.ImageList(c, image.ListOptions{}); err == nil {
+			// 		response.Docker.TotalImages = len(images)
+			// 	}
+			// }
 
 			// Get system information
 			response.System.OS = runtime.GOOS
