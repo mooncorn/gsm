@@ -28,7 +28,7 @@ export const filesApi = {
   },
 
   delete: async (path: string) => {
-    await apiClient.delete("/files", {
+    await apiClient.delete("/files/", {
       params: { path },
     });
   },

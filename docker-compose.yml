@@ -12,6 +12,7 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
+    user: "1000:1000"
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - /var/run/docker.sock:/var/run/docker.sock
