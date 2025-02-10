@@ -1,7 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
-import { apiUrl } from '../../config/constants';
-import { useUser } from '../../UserContext';
-import { IoLogOutOutline } from 'react-icons/io5';
+import { useState, useRef, useEffect } from "react";
+import { apiUrl } from "../../config/constants";
+import { useUser } from "../../UserContext";
+import { IoLogOutOutline } from "react-icons/io5";
 
 const UserMenu = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -15,12 +15,12 @@ const UserMenu = () => {
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleSignOut = () => {
-    window.location.href = `${apiUrl}/signout`;
+    window.location.href = `${apiUrl}/auth/signout`;
   };
 
   return (
@@ -30,7 +30,11 @@ const UserMenu = () => {
         className="flex items-center justify-center w-8 h-8 rounded-full overflow-hidden border-2 border-gray-700 hover:border-gray-500 transition-colors"
       >
         {user?.picture ? (
-          <img src={user.picture} alt={user.email} className="w-full h-full object-cover" />
+          <img
+            src={user.picture}
+            alt={user.email}
+            className="w-full h-full object-cover"
+          />
         ) : (
           <div className="w-full h-full bg-gray-700 flex items-center justify-center text-sm font-medium text-white">
             {user?.email?.charAt(0).toUpperCase()}
@@ -57,4 +61,4 @@ const UserMenu = () => {
   );
 };
 
-export default UserMenu; 
+export default UserMenu;

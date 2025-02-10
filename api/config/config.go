@@ -27,7 +27,7 @@ func Get() *Config {
 		cfg = &Config{
 			AppEnv:         getEnvOrDefault("APP_ENV", "development"),
 			Port:           getEnvOrDefault("PORT", "8080"),
-			DataDir:        getEnvOrDefault("DATA_DIR", path.Join(os.Getenv("HOME"), "gsm")),
+			DataDir:        getEnvOrDefault("DATA_DIR", path.Join(os.Getenv("HOME"), "gsm-data")),
 			AllowOrigin:    getEnvOrDefault("ALLOW_ORIGIN", "http://localhost:5173"),
 			CookieDomain:   getEnvOrDefault("COOKIE_DOMAIN", "localhost"),
 			SSLCertFile:    os.Getenv("SSL_CERT_FILE"),

@@ -4,7 +4,7 @@ import { apiClient } from "../../api/config";
 
 const SignIn: React.FC = () => {
   const handleSignIn = () => {
-    window.location.href = `${apiClient.defaults.baseURL}/signin`;
+    window.location.href = `${apiClient.defaults.baseURL}/auth/signin`;
   };
 
   return (

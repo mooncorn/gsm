@@ -55,6 +55,7 @@ func loadEnv() {
 }
 
 func initializeDatabase() *gorm.DB {
+	fmt.Println(getDatabasePath())
 	db, err := gorm.Open(sqlite.Open(getDatabasePath()), &gorm.Config{})
 
 	if err != nil {
