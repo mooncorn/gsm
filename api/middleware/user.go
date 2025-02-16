@@ -2,7 +2,7 @@ package middlewares
 
 import (
 	"fmt"
-	"os"
+	"gsm/config"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -10,6 +10,7 @@ import (
 )
 
 func CheckUser(c *gin.Context) {
+	cfg := config.Get()
 	tokenString, err := c.Cookie("token")
 	if err != nil {
 		// If cookie is not found, allow unauthenticated access
@@ -22,7 +23,7 @@ func CheckUser(c *gin.Context) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(os.Getenv("JWT_SECRET")), nil
+		return []byte(cfg.JWTSecret), nil
 	})
 
 	if err != nil {

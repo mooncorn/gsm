@@ -55,7 +55,6 @@ func loadEnv() {
 }
 
 func initializeDatabase() *gorm.DB {
-	fmt.Println(getDatabasePath())
 	db, err := gorm.Open(sqlite.Open(getDatabasePath()), &gorm.Config{})
 
 	if err != nil {
@@ -120,10 +119,5 @@ func startServer(r *gin.Engine) {
 
 func getDatabasePath() string {
 	cfg := config.Get()
-
-	if strings.ToLower(cfg.AppEnv) == "production" {
-		return path.Join(cfg.DataDir, DATABASE_NAME)
-	}
-
-	return path.Join(cfg.HostHomeDir, cfg.DataDir, DATABASE_NAME)
+	return path.Join(cfg.DataDir, DATABASE_NAME)
 }
